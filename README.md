@@ -1,66 +1,100 @@
-# Guia de Deploy — Supervisório SCADA-LTS multi-cliente (do zero)
+# SCADA-LTS Multi-Tenant Deploy Guide
 
-Passo a passo genérico pra alguém de fora replicar toda a infraestrutura:
-criar a VM, abrir as portas certas, baixar/subir os serviços, e deixar a
-automação de cliente novo funcionando. Sem nome de cliente real — troque
-`<nome-do-cliente>` pelo que fizer sentido no seu caso.
+*[Leia em português](README.pt-BR.md)*
 
-Este é um guia standalone, direto ao ponto — sem histórico de bugs
-ou decisões de arquitetura, só o caminho pra ter tudo rodando do zero.
+A from-scratch, step-by-step guide to running a **multi-tenant SCADA-LTS
+setup on a single cloud VM**: one shared MySQL instance, one isolated
+SCADA-LTS container per client, each with its own branded login/theme, and
+a **Node-RED automation** that provisions/publishes/deletes clients through
+a web form instead of manual clicking.
 
-## 1. O que você vai ter no final
+No real client name, IP, or secret anywhere in this repo — every value that
+needs to be real is a `<placeholder>` or `__ENV_VAR__`.
 
-- Uma VM Linux rodando **MySQL** (um banco por cliente) + **N
-  instâncias de SCADA-LTS** (uma por cliente, cada uma seu próprio
-  container Docker) + **Node-RED** (automação de criar/excluir cliente
-  e publicar domínio).
-- Cada cliente acessível por dois caminhos: um IP interno (Tailscale,
-  pra você administrar) e opcionalmente um domínio público
-  (`<cliente>.seudominio.com`, via Cloudflare Tunnel — sem porta
-  aberta pra internet).
-- Um formulário web (Node-RED Dashboard) onde você digita nome/cor/login
-  do cliente e ele sobe tudo sozinho em 2-4 minutos.
+## Architecture
 
-## 2. Provisionar a VM
+```mermaid
+flowchart TB
+    subgraph VM["Single Cloud VM (Ubuntu, Docker)"]
+        MySQL[("MySQL 8\n(one DB per client)")]
+        subgraph Clients["One SCADA-LTS container per client"]
+            C1["scadalts-client-a\n:8080 internal"]
+            C2["scadalts-client-b\n:8080 internal"]
+            C3["scadalts-...\n:8080 internal"]
+        end
+        NodeRED["Node-RED\n(automation dashboard)"]
+        Cloudflared["cloudflared\n(native systemd)"]
+        C1 --> MySQL
+        C2 --> MySQL
+        C3 --> MySQL
+        NodeRED -->|creates/deletes/\npublishes domain| C1
+        NodeRED -->|creates/deletes/\npublishes domain| C2
+        NodeRED -.->|writes ingress rules to\n/etc/cloudflared/config.yml| Cloudflared
+    end
+    Admin["You\n(Tailscale)"] -->|:1880 UI| NodeRED
+    Admin -->|:8080+ per client| C1
+    Browser["Client's browser"] -->|https://client-a.yourdomain.com| Cloudflared
+    Cloudflared --> C1
+```
 
-Qualquer provedor cloud serve; este projeto usa Hetzner Cloud (bom
-custo-benefício, datacenter Europa/EUA).
+No inbound port is ever opened to the public internet for the app itself —
+access is either through Tailscale (private mesh network, for you) or
+through Cloudflare Tunnel (outbound-only connection from the VM, for
+clients with a public domain).
 
-- **Specs mínimas**: 2 vCPU, 4GB RAM pra poucos clientes (~3-5). Cada
-  instância SCADA-LTS usa uns 350-500MB de RAM; planeje
-  `500MB × número de clientes simultâneos + 1GB pro MySQL/Node-RED/SO`.
-- **SO**: Ubuntu 24.04 LTS.
-- Anote o IP público — vai precisar pra SSH e pro Cloudflare Tunnel.
+## 1. What you'll end up with
 
-## 3. Portas — o que precisa abrir de verdade
+- One Linux VM running **MySQL** (one database per client) + **N SCADA-LTS
+  instances** (one per client, each its own Docker container) + **Node-RED**
+  (automation for creating/deleting a client and publishing a domain).
+- Each client reachable two ways: an internal IP (Tailscale, for you to
+  administer) and optionally a public domain
+  (`<client>.yourdomain.com`, via Cloudflare Tunnel — no open port).
+- A web form (Node-RED Dashboard) where you type the client's name/color/
+  login and it provisions everything by itself in 2-4 minutes.
 
-**Resposta curta: nenhuma porta de aplicação precisa ficar aberta pra
-internet.** O acesso público é só via Cloudflare Tunnel (conexão de
-saída da VM pro Cloudflare, não entrada).
+## 2. Provision the VM
 
-| Porta | Serviço | Exposição |
+Any cloud provider works; this project uses Hetzner Cloud (good
+price/performance, EU/US datacenters).
+
+- **Minimum specs**: 2 vCPU, 4GB RAM for a handful of clients (~3-5). Each
+  SCADA-LTS instance uses ~350-500MB RAM; budget
+  `500MB × concurrent clients + 1GB for MySQL/Node-RED/OS`.
+- **OS**: Ubuntu 24.04 LTS.
+- **Cost**: a Hetzner `cx23`-class VM (2 vCPU/4GB) runs roughly €6-7/month
+  at the time of writing — check current pricing, this changes.
+- Note the public IP — you'll need it for SSH and the Cloudflare Tunnel.
+
+## 3. Ports — what actually needs to be open
+
+**Short answer: no application port needs to be open to the internet.**
+Public access is only through the Cloudflare Tunnel (outbound connection
+from the VM, not inbound).
+
+| Port | Service | Exposure |
 |---|---|---|
-| 22 | SSH | Só seu IP, ou melhor: só via Tailscale |
-| 3306 | MySQL | Nunca exposta — só rede Docker interna |
-| 8080+ (uma por cliente) | SCADA-LTS (Tomcat) | Só no IP Tailscale da VM (rede mesh privada) |
-| 1880 | Node-RED (dashboard de automação) | Só no IP Tailscale da VM |
-| — | Cloudflare Tunnel | Sem porta — conexão de saída (outbound) da VM pro Cloudflare |
-| 6000-6100 (se usar ABS Cel) | Bridge Modbus do Gateway | Só rede Docker interna, entre Gateway e SCADA-LTS |
+| 22 | SSH | Your IP only, or better: Tailscale-only |
+| 3306 | MySQL | Never exposed — internal Docker network only |
+| 8080+ (one per client) | SCADA-LTS (Tomcat) | Only on the VM's Tailscale IP (private mesh network) |
+| 1880 | Node-RED (automation dashboard) | Only on the VM's Tailscale IP |
+| — | Cloudflare Tunnel | No port — outbound connection from the VM to Cloudflare |
+| 6000-6100 (if using ABS Cel modems) | Gateway's Modbus bridge | Internal Docker network only, between Gateway and SCADA-LTS |
 
-Instale o **Tailscale** na VM (`curl -fsSL https://tailscale.com/install.sh | sh`,
-depois `tailscale up`) — é assim que você acessa tudo sem abrir porta
-nenhuma pro mundo.
+Install **Tailscale** on the VM (`curl -fsSL https://tailscale.com/install.sh | sh`,
+then `tailscale up`) — that's how you reach everything without opening a
+single port to the world.
 
-## 4. Instalar Docker
+## 4. Install Docker
 
 ```bash
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 ```
 
-## 5. Subir o MySQL (banco compartilhado)
+## 5. Bring up MySQL (shared database)
 
-Cria `/opt/scadalts/stack/docker-compose.yml`:
+Create `/opt/scadalts/stack/docker-compose.yml`:
 
 ```yaml
 services:
@@ -69,9 +103,9 @@ services:
     image: mysql/mysql-server:8.0.32
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=<senha-forte-aqui>
+      - MYSQL_ROOT_PASSWORD=<strong-password-here>
       - MYSQL_USER=scadalts
-      - MYSQL_PASSWORD=<senha-forte-aqui>
+      - MYSQL_PASSWORD=<strong-password-here>
       - MYSQL_DATABASE=scadalts
     volumes:
       - ./db_data:/var/lib/mysql:rw
@@ -82,59 +116,58 @@ services:
 cd /opt/scadalts/stack && docker compose up -d
 ```
 
-## 6. Imagem do SCADA-LTS — qual baixar
+## 6. SCADA-LTS image — what to pull
 
-**Não precisa baixar `.jar` manualmente** — a imagem Docker
-`scadalts/scadalts` já vem com o SCADA-LTS (Tomcat + WAR) pronto.
+**No `.jar` to download by hand** — the `scadalts/scadalts` Docker image
+already ships SCADA-LTS (Tomcat + WAR) ready to go.
 
 ```bash
 docker pull scadalts/scadalts:v2.7.8.1
 ```
 
-**Importante: fixe a versão, não use `:latest`.** No momento em que
-este guia foi escrito, `:latest` resolve pra `v2.8.0`, que a própria
-equipe do SCADA-LTS marca como **prerelease** no GitHub — não é a
-versão estável recomendada pra produção. Confira a versão atual em
+**Important: pin the version, don't use `:latest`.** At the time this guide
+was written, `:latest` resolves to `v2.8.0`, which the SCADA-LTS team
+themselves mark as a **prerelease** on GitHub — not the recommended stable
+version for production. Check the current release at
 [github.com/SCADA-LTS/Scada-LTS/releases](https://github.com/SCADA-LTS/Scada-LTS/releases)
-antes de fixar.
+before pinning.
 
-## 7. ABS Gateway/Master (só se usar modem ABS Cel)
+## 7. ABS Gateway/Master (only if using ABS Cel modems)
 
-Se o cliente tiver um modem celular ABS Cel fazendo a ponte Modbus, você
-precisa das imagens proprietárias da ABS Telemetria (`abs-gateway`,
-`abs-master`) — peça acesso ao registry deles, não são públicas. Sem
-modem ABS, pule esta etapa (o cliente pode ter outro tipo de fonte de
-dado, configurado como Data Source diferente dentro do próprio
-SCADA-LTS).
+If a client has an ABS Cel cellular modem doing the Modbus bridge, you need
+ABS Telemetria's proprietary Docker images (`abs-gateway`, `abs-master`) —
+request registry access from them, they're not public. Without an ABS
+modem, skip this step (the client can have another data source type,
+configured as a different Data Source inside SCADA-LTS itself).
 
 ## 8. Cloudflare Tunnel
 
-1. No painel Cloudflare Zero Trust, crie um túnel novo, anote o `tunnel
-   id` e baixe o arquivo de credencial (`.json`).
-2. Instale o `cloudflared` na VM:
+1. In the Cloudflare Zero Trust dashboard, create a new tunnel, note the
+   `tunnel id`, and download the credentials file (`.json`).
+2. Install `cloudflared` on the VM:
    ```bash
    curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/bin/cloudflared
    chmod +x /usr/bin/cloudflared
    ```
 3. `/etc/cloudflared/config.yml`:
    ```yaml
-   tunnel: <seu-tunnel-id>
-   credentials-file: /etc/cloudflared/<seu-tunnel-id>.json
+   tunnel: <your-tunnel-id>
+   credentials-file: /etc/cloudflared/<your-tunnel-id>.json
    ingress:
      - service: http_status:404
    ```
-4. Systemd service pra rodar sempre:
+4. Systemd service to keep it running:
    ```bash
    cloudflared service install
    systemctl enable --now cloudflared
    ```
 
-**Watcher de reload automático** — como cada cliente novo precisa de
-uma linha nova em `ingress:`, e reiniciar o `cloudflared` manualmente
-toda vez é chato/arriscado de esquecer, crie um watcher systemd que
-reinicia sozinho quando o arquivo muda (arquivos prontos em
-`systemd/cloudflared-reload.path` e `systemd/cloudflared-reload.service`
-deste repo):
+**Automatic reload watcher** — since every new client needs a new line
+under `ingress:`, and manually restarting `cloudflared` every time is
+annoying/easy to forget, set up a systemd watcher that restarts it by
+itself whenever the file changes (files provided in
+`systemd/cloudflared-reload.path` and `systemd/cloudflared-reload.service`
+in this repo):
 
 ```bash
 cp systemd/cloudflared-reload.* /etc/systemd/system/
@@ -142,7 +175,7 @@ systemctl daemon-reload
 systemctl enable --now cloudflared-reload.path
 ```
 
-## 9. Node-RED (automação de cliente novo)
+## 9. Node-RED (client automation)
 
 ```bash
 mkdir -p /opt/node-red/data
@@ -159,7 +192,7 @@ services:
     restart: unless-stopped
     user: root
     ports:
-      - "<IP_TAILSCALE_DA_VM>:1880:1880"
+      - "<VM_TAILSCALE_IP>:1880:1880"
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -176,8 +209,8 @@ networks:
     name: stack_default
 ```
 
-`Dockerfile` ao lado (a imagem base do Node-RED não vem com Docker CLI
-nem PyYAML, e o fluxo de automação precisa dos dois):
+`Dockerfile` next to it (the base Node-RED image doesn't ship Docker CLI or
+PyYAML, and the automation flow needs both):
 
 ```dockerfile
 FROM nodered/node-red:latest
@@ -190,62 +223,62 @@ USER node-red
 cd /opt/node-red && docker compose up -d
 ```
 
-Copie `node-red-flows/flows.json` deste repo pra
-`/opt/node-red/data/flows.json` — é a automação **completa e real**,
-não uma descrição, importe direto: formulário de criar cliente (nome,
-paleta de 12 cores, login/senha com confirmação), barra de progresso
-ao vivo, botão "Publicar domínio", botão "Excluir" com senha mestra +
-backup automático, trava impedindo duas operações pesadas ao mesmo
-tempo. Antes de subir, troque os placeholders no arquivo:
+Copy `node-red-flows/flows.json` from this repo to
+`/opt/node-red/data/flows.json` — this is the **full, real** automation, not
+a description, import it directly: client creation form (name, 12-color
+palette, login/password with confirmation), live progress bar, "Publish
+domain" button, "Delete" button with master password + automatic backup, a
+lock preventing two heavy operations from running at once. Before starting,
+swap the placeholders in the file:
 
-| Placeholder | O que é |
+| Placeholder | What it is |
 |---|---|
-| `__CF_API_TOKEN__` | Token da API Cloudflare (ver abaixo) |
-| `__CF_ZONE_ID__` | ID da zona/domínio no Cloudflare (Painel → seu domínio → barra lateral direita) |
-| `__CF_TUNNEL_ID__` | ID do túnel criado no passo 8 |
-| `__TAILSCALE_IP_DA_VM__` | IP Tailscale da sua VM |
-| `__SEU_DOMINIO__` | Seu domínio (ex.: `exemplo.com`) |
-| `__MYSQL_ROOT_PASSWORD__` | Senha do MySQL definida no passo 5 |
-| `__MASTER_PASSWORD_EXCLUIR__` | Senha que você escolher pra confirmar exclusão de cliente |
+| `__CF_API_TOKEN__` | Cloudflare API token (see below) |
+| `__CF_ZONE_ID__` | Zone/domain ID in Cloudflare (Dashboard → your domain → right sidebar) |
+| `__CF_TUNNEL_ID__` | Tunnel ID created in step 8 |
+| `__TAILSCALE_IP_DA_VM__` | Your VM's Tailscale IP |
+| `__SEU_DOMINIO__` | Your domain (e.g. `example.com`) |
+| `__MYSQL_ROOT_PASSWORD__` | MySQL password set in step 5 |
+| `__MASTER_PASSWORD_EXCLUIR__` | Password you choose to confirm client deletion |
 
-Copie também `node-red-flows/novo_cliente.py` deste repo pra
-`/opt/scadalts/stack/scripts/novo_cliente.py` (mesma troca de
-`__TAILSCALE_IP_DA_VM__`) — é o script que o fluxo chama pra criar
-banco/container.
+Also copy `node-red-flows/novo_cliente.py` from this repo to
+`/opt/scadalts/stack/scripts/novo_cliente.py` (same
+`__TAILSCALE_IP_DA_VM__` swap) — it's the script the flow calls to create
+the database/container.
 
-Reinicie o container do Node-RED depois de colocar os dois arquivos.
+Restart the Node-RED container after placing both files.
 
-**Token Cloudflare pro botão "Publicar domínio"**: crie em
+**Cloudflare token for the "Publish domain" button**: create one at
 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),
-permissões `Zone → DNS → Edit` + `Account → Cloudflare Tunnel → Edit`,
-escopo só na sua zona/domínio.
+permissions `Zone → DNS → Edit` + `Account → Cloudflare Tunnel → Edit`,
+scoped to your zone only.
 
-## 9b. Como fica o serviço de um cliente no `docker-compose.yml`
+## 9b. What a client's service looks like in `docker-compose.yml`
 
-O `novo_cliente.py` adiciona automaticamente um bloco assim (exemplo
-real, gerado pelo script) — é isso que junta banco, container, tema e
-domínio numa coisa só:
+`novo_cliente.py` automatically appends a block like this (real example,
+generated by the script) — this is what ties together database, container,
+theme, and domain into one thing:
 
 ```yaml
 services:
-  scadalts-<nome>:
+  scadalts-<name>:
     image: scadalts/scadalts:v2.7.8.1
     restart: unless-stopped
     environment:
       - CATALINA_OPTS=-Xmx384m -Xms192m
       - TZ=America/Sao_Paulo
     ports:
-      - <IP_TAILSCALE_DA_VM>:<porta>:8080
+      - <VM_TAILSCALE_IP>:<port>:8080
     depends_on:
       - database
     volumes:
-      - ./clients/<nome>/tomcat_log:/usr/local/tomcat/logs:rw
-      - ./clients/<nome>/context.xml:/usr/local/tomcat/webapps/Scada-LTS/META-INF/context.xml:ro
-      - ./clients/<nome>/env.properties:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/classes/env.properties:ro
-      - ./clients/<nome>/graphics:/usr/local/tomcat/webapps/Scada-LTS/graphics:rw
-      - ./clients/<nome>/login/login-theme.css:/usr/local/tomcat/webapps/Scada-LTS/assets/login-theme.css:ro
-      - ./clients/<nome>/login/<nome>-logo.png:/usr/local/tomcat/webapps/Scada-LTS/assets/<nome>-logo.png:ro
-      - ./clients/<nome>/login/login.jsp:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/jsp/login.jsp:ro
+      - ./clients/<name>/tomcat_log:/usr/local/tomcat/logs:rw
+      - ./clients/<name>/context.xml:/usr/local/tomcat/webapps/Scada-LTS/META-INF/context.xml:ro
+      - ./clients/<name>/env.properties:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/classes/env.properties:ro
+      - ./clients/<name>/graphics:/usr/local/tomcat/webapps/Scada-LTS/graphics:rw
+      - ./clients/<name>/login/login-theme.css:/usr/local/tomcat/webapps/Scada-LTS/assets/login-theme.css:ro
+      - ./clients/<name>/login/<name>-logo.png:/usr/local/tomcat/webapps/Scada-LTS/assets/<name>-logo.png:ro
+      - ./clients/<name>/login/login.jsp:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/jsp/login.jsp:ro
     links:
       - database:database
     command:
@@ -259,55 +292,70 @@ services:
       - run
 ```
 
-`Xmx384m` é pouco de propósito — cada instância SCADA-LTS não precisa
-de muita RAM sozinha; ajuste conforme o volume de dados/telas gráficas
-do cliente. `wait-for-it` garante que o Tomcat só tenta subir depois do
-MySQL estar de pé (evita erro de conexão no primeiro boot).
+`Xmx384m` is deliberately modest — a single SCADA-LTS instance doesn't need
+much RAM on its own; tune it to the client's actual data/graphics volume.
+`wait-for-it` makes sure Tomcat only tries to start after MySQL is up
+(avoids a connection error on first boot).
 
-## 10. A página de login e a home bonitas (branding por cliente)
+## 10. The branded login/home pages
 
-O SCADA-LTS puro tem uma tela de login e um "watch list" genéricos, sem
-identidade visual — pra cada cliente ter sua cor/logo, o
-`novo_cliente.py` (passo 9) troca 4 arquivos dentro do container antes
-de subir, usando os templates deste repo em `node-red-flows/templates/`:
+Stock SCADA-LTS has a generic login screen and a technical "watch list" home
+— to give each client their own color/logo, `novo_cliente.py` (step 9)
+swaps 4 files inside the container before starting it, using this repo's
+templates in `node-red-flows/templates/`:
 
-| Arquivo | Serve pra | Placeholders | Onde fica dentro do container |
+| File | Purpose | Placeholders | Where it lands in the container |
 |---|---|---|---|
-| `login.jsp` | Substitui a tela de login padrão do SCADA-LTS | `{{CLIENTE_NOME}}`, `{{LOGO_FILENAME}}` | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
-| `login-theme.css` | Cor do tema aplicada na tela de login | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{COR_TEMA_HOVER}}` | `assets/login-theme.css` (bind mount `:ro`) |
-| `home.html` | Página inicial personalizada que o cliente vê ao logar (em vez do "watch list" técnico padrão) | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{LOGO_FILENAME}}` | dentro da pasta `graphics/`, que é montada inteira (`graphics:rw`) — é lá que o login do cliente aponta (`homeUrl: /graphics/home.html`) |
-| `context.xml` | Aponta o Tomcat pro banco MySQL certo desse cliente | `{{NOME_CLIENTE}}`, `{{DB_SENHA}}` | `META-INF/context.xml` (bind mount `:ro`) |
-| `env.properties` | Config padrão do SCADA-LTS (sem placeholder, copiado igual pra todo cliente) | — | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
+| `login.jsp` | Replaces the default SCADA-LTS login screen | `{{CLIENTE_NOME}}`, `{{LOGO_FILENAME}}` | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
+| `login-theme.css` | Theme color applied on the login screen | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{COR_TEMA_HOVER}}` | `assets/login-theme.css` (bind mount `:ro`) |
+| `home.html` | Custom landing page the client sees after logging in (instead of the default technical "watch list") | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{LOGO_FILENAME}}` | inside the `graphics/` folder, mounted whole (`graphics:rw`) — that's where the client's login points (`homeUrl: /graphics/home.html`) |
+| `context.xml` | Points Tomcat at the right MySQL database for this client | `{{NOME_CLIENTE}}`, `{{DB_SENHA}}` | `META-INF/context.xml` (bind mount `:ro`) |
+| `env.properties` | Standard SCADA-LTS config (no placeholder, copied as-is for every client) | — | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
 
-**Como a substituição funciona**: o script lê cada template, troca
-`{{PLACEHOLDER}}` pelo valor real (nome do cliente, hex da cor escolhida
-no formulário, nome do arquivo de logo), escreve o resultado em
-`/opt/scadalts/stack/clients/<nome>/`, e o serviço gerado no
-`docker-compose.yml` (seção 9) monta cada arquivo **por cima** do
-arquivo padrão do SCADA-LTS dentro da imagem via `volumes:` — um mount
-por arquivo, mais um mount de pasta inteira (`graphics/`) pra
-`home.html` + o logo.
+**How the substitution works**: the script reads each template, swaps
+`{{PLACEHOLDER}}` for the real value (client name, hex color picked in the
+form, logo filename), writes the result to
+`/opt/scadalts/stack/clients/<name>/`, and the generated
+`docker-compose.yml` service (section 9b) mounts each file **on top of**
+SCADA-LTS's default file inside the image via `volumes:` — one mount per
+file, plus one whole-folder mount (`graphics/`) for `home.html` + the logo.
 
-Pra trocar o **logo**: coloque o PNG do cliente em
-`/opt/scadalts/stack/clients/<nome>/graphics/<nome>-logo-full.png`
-(usado no `home.html`) e `/opt/scadalts/stack/clients/<nome>/login/<nome>-logo.png`
-(usado no `login.jsp`) — o `novo_cliente.py` já sabe montar esses
-caminhos, só precisa os arquivos existirem antes do container subir.
+To swap the **logo**: drop the client's PNG at
+`/opt/scadalts/stack/clients/<name>/graphics/<name>-logo-full.png` (used in
+`home.html`) and `/opt/scadalts/stack/clients/<name>/login/<name>-logo.png`
+(used in `login.jsp`) — `novo_cliente.py` already knows how to mount those
+paths, the files just need to exist before the container starts.
 
-## 11. Criar o primeiro cliente
+## 11. Create your first client
 
-Com tudo no ar: abra o dashboard Node-RED, aba "Cliente Novo", preencha
-nome/cor/login, clique em Criar. Acompanhe a barra de progresso (leva
-uns 2-4 minutos, a maior parte é o Tomcat subindo). No fim, o cliente
-aparece na aba "Clientes Ativos" com link de acesso — daí é só clicar
-em "Publicar domínio" se quiser um link público.
+With everything up: open the Node-RED dashboard, "New Client" tab, fill in
+name/color/login, click Create. Watch the progress bar (takes 2-4 minutes,
+most of it is Tomcat booting). At the end, the client shows up in the
+"Active Clients" tab with an access link — click "Publish domain" there if
+you want a public link too.
 
-## Resumo dos "arquivos a baixar"
+## Summary of "what to download"
 
-| O quê | De onde | Precisa de conta/token? |
+| What | From where | Needs an account/token? |
 |---|---|---|
-| Imagem SCADA-LTS | `docker pull scadalts/scadalts:v2.7.8.1` | Não |
-| Imagem MySQL | `docker pull mysql/mysql-server:8.0.32` | Não |
-| `cloudflared` | GitHub releases da Cloudflare | Não (mas precisa de conta Cloudflare pra criar o túnel) |
-| Imagens ABS Gateway/Master | Registry privado da ABS Telemetria | Sim, só se usar modem ABS Cel |
-| Templates de login/tema (JSP + CSS) | Vem junto com o próprio SCADA-LTS, customize a partir do padrão dele | Não |
+| SCADA-LTS image | `docker pull scadalts/scadalts:v2.7.8.1` | No |
+| MySQL image | `docker pull mysql/mysql-server:8.0.32` | No |
+| `cloudflared` | Cloudflare's GitHub releases | No (but you need a Cloudflare account to create the tunnel) |
+| ABS Gateway/Master images | ABS Telemetria's private registry | Yes, only if using an ABS Cel modem |
+| `flows.json`, `novo_cliente.py`, templates | This repo | No |
+
+## Known gaps (honest, not swept under the rug)
+
+- **Not yet validated end-to-end on a fresh VM** by an independent run of
+  this exact guide — it reflects a real, working deployment, but the guide
+  itself hasn't been dry-run from a blank VM top to bottom.
+- **No automated client-database backup yet** — only the "Delete" flow
+  backs up a specific client's database, right before removing it. There's
+  no periodic backup of the databases still running.
+- **No CI/tests** — this is documentation + config templates, not a tested
+  codebase.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). SCADA-LTS itself and any third-party
+component (ABS Gateway/Master, Cloudflare) keep their own licenses.
