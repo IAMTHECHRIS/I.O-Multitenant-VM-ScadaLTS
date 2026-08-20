@@ -242,11 +242,23 @@ swap the placeholders in the file:
 | `__MASTER_PASSWORD_EXCLUIR__` | Password you choose to confirm client deletion |
 
 Also copy `node-red-flows/novo_cliente.py` from this repo to
-`/opt/scadalts/stack/scripts/novo_cliente.py` (same
-`__TAILSCALE_IP_DA_VM__` swap) — it's the script the flow calls to create
-the database/container.
+`/opt/scadalts/stack/scripts/novo_cliente.py` — it's the script the flow
+calls to create the database/container. **This file needs two placeholders
+swapped, not one**: `__TAILSCALE_IP_DA_VM__` *and* `__MYSQL_ROOT_PASSWORD__`
+(it runs `mysql -u root -p...` directly). Skipping the second one fails with
+`ERROR 1045 (28000): Access denied for user 'root'@'localhost'` the first
+time you try to create a client.
 
-Restart the Node-RED container after placing both files.
+Finally, copy the branding templates from `node-red-flows/templates/` (see
+section 10 below) to `/opt/scadalts/stack/_template/` — `novo_cliente.py`
+expects them there and will fail if the folder doesn't exist:
+
+```bash
+mkdir -p /opt/scadalts/stack/_template
+cp node-red-flows/templates/* /opt/scadalts/stack/_template/
+```
+
+Restart the Node-RED container after placing all the files above.
 
 **Cloudflare token for the "Publish domain" button**: create one at
 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),

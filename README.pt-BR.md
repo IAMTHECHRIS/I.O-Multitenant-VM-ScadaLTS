@@ -241,11 +241,23 @@ tempo. Antes de subir, troque os placeholders no arquivo:
 | `__MASTER_PASSWORD_EXCLUIR__` | Senha que você escolher pra confirmar exclusão de cliente |
 
 Copie também `node-red-flows/novo_cliente.py` deste repo pra
-`/opt/scadalts/stack/scripts/novo_cliente.py` (mesma troca de
-`__TAILSCALE_IP_DA_VM__`) — é o script que o fluxo chama pra criar
-banco/container.
+`/opt/scadalts/stack/scripts/novo_cliente.py` — é o script que o fluxo chama
+pra criar banco/container. **Este arquivo precisa de dois placeholders
+trocados, não só um**: `__TAILSCALE_IP_DA_VM__` *e* `__MYSQL_ROOT_PASSWORD__`
+(ele roda `mysql -u root -p...` direto). Esquecer o segundo dá
+`ERROR 1045 (28000): Access denied for user 'root'@'localhost'` na primeira
+tentativa de criar cliente.
 
-Reinicie o container do Node-RED depois de colocar os dois arquivos.
+Por fim, copie os templates de marca de `node-red-flows/templates/` (ver
+seção 10 abaixo) pra `/opt/scadalts/stack/_template/` — o `novo_cliente.py`
+espera esses arquivos lá e falha se a pasta não existir:
+
+```bash
+mkdir -p /opt/scadalts/stack/_template
+cp node-red-flows/templates/* /opt/scadalts/stack/_template/
+```
+
+Reinicie o container do Node-RED depois de colocar todos os arquivos acima.
 
 **Token Cloudflare pro botão "Publicar domínio"**: crie em
 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),

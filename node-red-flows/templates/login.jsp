@@ -18,6 +18,7 @@
 
     Template neutro -- gerado automaticamente pelo fluxo de cliente novo.
 --%>
+<%@ page pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/include/tech.jsp" %>
 <tag:page onload="setFocus">
   <link rel="stylesheet" href="assets/login-theme.css?v=1" type="text/css"/>
