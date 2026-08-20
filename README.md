@@ -190,26 +190,111 @@ USER node-red
 cd /opt/node-red && docker compose up -d
 ```
 
-Monte o fluxo Node-RED (formulário de criar cliente + barra de
-progresso + botão de publicar domínio + botão de excluir com senha
-mestra) no editor visual (`http://<IP_TAILSCALE_DA_VM>:1880`) — a
-lógica é: formulário → roda o script de provisionamento → aguarda o
-Tomcat subir → cria login admin+cliente via API REST do SCADA-LTS →
-mostra resultado. Reinicie o container depois de qualquer mudança.
+Copie `node-red-flows/flows.json` deste repo pra
+`/opt/node-red/data/flows.json` — é a automação **completa e real**,
+não uma descrição, importe direto: formulário de criar cliente (nome,
+paleta de 12 cores, login/senha com confirmação), barra de progresso
+ao vivo, botão "Publicar domínio", botão "Excluir" com senha mestra +
+backup automático, trava impedindo duas operações pesadas ao mesmo
+tempo. Antes de subir, troque os placeholders no arquivo:
+
+| Placeholder | O que é |
+|---|---|
+| `__CF_API_TOKEN__` | Token da API Cloudflare (ver abaixo) |
+| `__CF_ZONE_ID__` | ID da zona/domínio no Cloudflare (Painel → seu domínio → barra lateral direita) |
+| `__CF_TUNNEL_ID__` | ID do túnel criado no passo 8 |
+| `__TAILSCALE_IP_DA_VM__` | IP Tailscale da sua VM |
+| `__SEU_DOMINIO__` | Seu domínio (ex.: `exemplo.com`) |
+| `__MYSQL_ROOT_PASSWORD__` | Senha do MySQL definida no passo 5 |
+| `__MASTER_PASSWORD_EXCLUIR__` | Senha que você escolher pra confirmar exclusão de cliente |
+
+Copie também `node-red-flows/novo_cliente.py` deste repo pra
+`/opt/scadalts/stack/scripts/novo_cliente.py` (mesma troca de
+`__TAILSCALE_IP_DA_VM__`) — é o script que o fluxo chama pra criar
+banco/container.
+
+Reinicie o container do Node-RED depois de colocar os dois arquivos.
 
 **Token Cloudflare pro botão "Publicar domínio"**: crie em
 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),
 permissões `Zone → DNS → Edit` + `Account → Cloudflare Tunnel → Edit`,
 escopo só na sua zona/domínio.
 
-Deixe um script de provisionamento em
-`/opt/scadalts/stack/scripts/novo_cliente.py` que: cria banco+usuário
-MySQL pro cliente, escolhe a próxima porta livre, copia os templates
-de login/tema (`/opt/scadalts/stack/_template/`) substituindo
-placeholders de nome/cor, adiciona o serviço no `docker-compose.yml`, e
-sobe o container.
+## 9b. Como fica o serviço de um cliente no `docker-compose.yml`
 
-## 10. Criar o primeiro cliente
+O `novo_cliente.py` adiciona automaticamente um bloco assim (exemplo
+real, gerado pelo script) — é isso que junta banco, container, tema e
+domínio numa coisa só:
+
+```yaml
+services:
+  scadalts-<nome>:
+    image: scadalts/scadalts:v2.7.8.1
+    restart: unless-stopped
+    environment:
+      - CATALINA_OPTS=-Xmx384m -Xms192m
+      - TZ=America/Sao_Paulo
+    ports:
+      - <IP_TAILSCALE_DA_VM>:<porta>:8080
+    depends_on:
+      - database
+    volumes:
+      - ./clients/<nome>/tomcat_log:/usr/local/tomcat/logs:rw
+      - ./clients/<nome>/context.xml:/usr/local/tomcat/webapps/Scada-LTS/META-INF/context.xml:ro
+      - ./clients/<nome>/env.properties:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/classes/env.properties:ro
+      - ./clients/<nome>/graphics:/usr/local/tomcat/webapps/Scada-LTS/graphics:rw
+      - ./clients/<nome>/login/login-theme.css:/usr/local/tomcat/webapps/Scada-LTS/assets/login-theme.css:ro
+      - ./clients/<nome>/login/<nome>-logo.png:/usr/local/tomcat/webapps/Scada-LTS/assets/<nome>-logo.png:ro
+      - ./clients/<nome>/login/login.jsp:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/jsp/login.jsp:ro
+    links:
+      - database:database
+    command:
+      - /usr/bin/wait-for-it
+      - --host=database
+      - --port=3306
+      - --timeout=60
+      - --strict
+      - --
+      - /usr/local/tomcat/bin/catalina.sh
+      - run
+```
+
+`Xmx384m` é pouco de propósito — cada instância SCADA-LTS não precisa
+de muita RAM sozinha; ajuste conforme o volume de dados/telas gráficas
+do cliente. `wait-for-it` garante que o Tomcat só tenta subir depois do
+MySQL estar de pé (evita erro de conexão no primeiro boot).
+
+## 10. A página de login e a home bonitas (branding por cliente)
+
+O SCADA-LTS puro tem uma tela de login e um "watch list" genéricos, sem
+identidade visual — pra cada cliente ter sua cor/logo, o
+`novo_cliente.py` (passo 9) troca 4 arquivos dentro do container antes
+de subir, usando os templates deste repo em `node-red-flows/templates/`:
+
+| Arquivo | Serve pra | Placeholders | Onde fica dentro do container |
+|---|---|---|---|
+| `login.jsp` | Substitui a tela de login padrão do SCADA-LTS | `{{CLIENTE_NOME}}`, `{{LOGO_FILENAME}}` | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
+| `login-theme.css` | Cor do tema aplicada na tela de login | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{COR_TEMA_HOVER}}` | `assets/login-theme.css` (bind mount `:ro`) |
+| `home.html` | Página inicial personalizada que o cliente vê ao logar (em vez do "watch list" técnico padrão) | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{LOGO_FILENAME}}` | dentro da pasta `graphics/`, que é montada inteira (`graphics:rw`) — é lá que o login do cliente aponta (`homeUrl: /graphics/home.html`) |
+| `context.xml` | Aponta o Tomcat pro banco MySQL certo desse cliente | `{{NOME_CLIENTE}}`, `{{DB_SENHA}}` | `META-INF/context.xml` (bind mount `:ro`) |
+| `env.properties` | Config padrão do SCADA-LTS (sem placeholder, copiado igual pra todo cliente) | — | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
+
+**Como a substituição funciona**: o script lê cada template, troca
+`{{PLACEHOLDER}}` pelo valor real (nome do cliente, hex da cor escolhida
+no formulário, nome do arquivo de logo), escreve o resultado em
+`/opt/scadalts/stack/clients/<nome>/`, e o serviço gerado no
+`docker-compose.yml` (seção 9) monta cada arquivo **por cima** do
+arquivo padrão do SCADA-LTS dentro da imagem via `volumes:` — um mount
+por arquivo, mais um mount de pasta inteira (`graphics/`) pra
+`home.html` + o logo.
+
+Pra trocar o **logo**: coloque o PNG do cliente em
+`/opt/scadalts/stack/clients/<nome>/graphics/<nome>-logo-full.png`
+(usado no `home.html`) e `/opt/scadalts/stack/clients/<nome>/login/<nome>-logo.png`
+(usado no `login.jsp`) — o `novo_cliente.py` já sabe montar esses
+caminhos, só precisa os arquivos existirem antes do container subir.
+
+## 11. Criar o primeiro cliente
 
 Com tudo no ar: abra o dashboard Node-RED, aba "Cliente Novo", preencha
 nome/cor/login, clique em Criar. Acompanhe a barra de progresso (leva

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context antiJARLocking="true" path="/Scada-LTS">
+  <Resource
+    name="jdbc/scadalts"
+    auth="Container"
+    type="javax.sql.DataSource"
+    maxTotal="100"
+    maxIdle="30"
+    maxWaitMillis="10000"
+    username="scadalts_{{NOME_CLIENTE}}"
+    password="{{DB_SENHA}}"
+    driverClassName="com.mysql.jdbc.Driver"
+    url="jdbc:mysql://database:3306/scadalts_{{NOME_CLIENTE}}?useUnicode=yes&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true"
+  />
+</Context>

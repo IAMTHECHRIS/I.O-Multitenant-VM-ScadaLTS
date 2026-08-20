@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link rel="apple-touch-icon" href="{{LOGO_FILENAME}}">
+    <link id="dynamic-favicon" rel="icon" href="{{LOGO_FILENAME}}" type="image/png">
+    <link rel="shortcut icon" href="{{LOGO_FILENAME}}" type="image/png">
+    <title>{{CLIENTE_NOME}}</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f4f6f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 4px 24px rgba(16,24,40,.10);
+            padding: 40px 48px;
+            text-align: center;
+            max-width: 420px;
+        }
+        .card img { max-width: 220px; margin-bottom: 20px; }
+        .card h1 { font-size: 18px; color: #1a252f; margin: 0 0 8px; }
+        .card p { font-size: 13.5px; color: #7a8a99; margin: 0; }
+        .accent { color: {{COR_TEMA}}; font-weight: 700; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="{{LOGO_FILENAME}}" alt="{{CLIENTE_NOME}}">
+        <h1>{{CLIENTE_NOME}}</h1>
+        <p>Painel <span class="accent">em configuração</span> — os pontos de telemetria aparecem aqui assim que forem cadastrados.</p>
+    </div>
+</body>
+</html>
