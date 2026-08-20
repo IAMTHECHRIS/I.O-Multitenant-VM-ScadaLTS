@@ -1,0 +1,8 @@
+[Unit]
+Description=Observa mudancas no config do cloudflared
+
+[Path]
+PathModified=/etc/cloudflared/config.yml
+
+[Install]
+WantedBy=multi-user.target

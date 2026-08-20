@@ -1,0 +1,6 @@
+[Unit]
+Description=Reinicia cloudflared apos mudanca de config (disparado por cloudflared-reload.path)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart cloudflared.service
