@@ -257,7 +257,15 @@ mkdir -p /opt/scadalts/stack/_template
 cp node-red-flows/templates/* /opt/scadalts/stack/_template/
 ```
 
-Reinicie o container do Node-RED depois de colocar todos os arquivos acima.
+A imagem base `nodered/node-red` **não** vem com a UI do dashboard nem com
+o nó de MySQL — o `flows.json` precisa dos dois. Instale antes de reiniciar:
+
+```bash
+docker exec node-red sh -c 'cd /data && npm install node-red-dashboard node-red-node-mysql'
+```
+
+Reinicie o container do Node-RED depois de colocar todos os arquivos acima
+e instalar esses dois pacotes.
 
 **Token Cloudflare pro botão "Publicar domínio"**: crie em
 [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),
