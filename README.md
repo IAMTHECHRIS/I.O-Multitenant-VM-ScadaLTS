@@ -213,7 +213,7 @@ by trial and error, the defaults don't):
    credentials-file: /etc/cloudflared/<your-tunnel-id>.json
    ingress:
      - hostname: <client>.yourdomain.com
-       service: http://localhost:8080
+       service: http://<VM_TAILSCALE_IP>:8080
      - service: http_status:404
    ```
 4. Systemd service to keep it running:
@@ -296,7 +296,7 @@ this — see the note below on why):
       - CATALINA_OPTS=-Xmx384m -Xms192m
       - TZ=America/Sao_Paulo
     ports:
-      - 8080:8080
+      - <VM_TAILSCALE_IP>:8080:8080
     depends_on:
       - database
     volumes:
@@ -342,7 +342,7 @@ cd /opt/scadalts/stack && docker compose up -d scadalts-$NOME
 **9.4 — Wait for it, then check.**
 
 ```bash
-until curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/Scada-LTS/login.htm | grep -q 200; do
+until curl -s -o /dev/null -w '%{http_code}' http://<VM_TAILSCALE_IP>:8080/Scada-LTS/login.htm | grep -q 200; do
   sleep 3
 done
 echo "up"
