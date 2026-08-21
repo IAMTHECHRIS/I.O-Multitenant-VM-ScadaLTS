@@ -134,11 +134,102 @@ before pinning.
 
 ## 7. ABS Gateway/Master (only if using ABS Cel modems)
 
-If a client has an ABS Cel cellular modem doing the Modbus bridge, you need
-ABS Telemetria's proprietary Docker images (`abs-gateway`, `abs-master`) —
-request registry access from them, they're not public. Without an ABS
-modem, skip this step (the client can have another data source type,
-configured as a different Data Source inside SCADA-LTS itself).
+**This is a different pattern from everything above.** Sections 1-11 of
+this guide cover one client = one isolated SCADA-LTS container + one
+database (the "formal" pattern: each client fully separate, own port, own
+domain). ABS Gateway/Master covers a second, distinct pattern: **several
+clients sharing a single SCADA-LTS instance**, each with a physical ABS
+Cel cellular modem doing the Modbus bridge, distinguished only by
+restricted user permissions (not separate containers/databases). Don't mix
+the two — decide per client which pattern applies before provisioning.
+
+If a client has an ABS Cel cellular modem, you need ABS Telemetria's
+proprietary Docker images (`abs-gateway`, `abs-master`) — request registry
+access from them, they're not public. Without an ABS modem, skip this
+whole section (the client can have another data source type, configured
+as a different Data Source inside SCADA-LTS itself, under the normal
+per-client-container pattern from sections 1-11).
+
+**`docker-compose.yml`** (separate stack, e.g. `/opt/abs/docker-compose.yml`):
+
+```yaml
+services:
+  abs_gateway:
+    image: swr.abstelemetria.com/abs-gateway:v1.20
+    container_name: abs_gateway
+    command: -port=<ABS_GATEWAY_PORT> -mport=<ABS_GATEWAY_PORT>
+    network_mode: "host"
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    pids_limit: 65535
+    ulimits:
+      nproc: 65535
+
+  master_main:
+    image: swr.abstelemetria.com/abs-master:v6.02
+    container_name: master_main
+    network_mode: "host"
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    volumes:
+      - ./master_main/portas.txt:/opt/abs/portas.txt
+      - ./master_main/master.txt:/opt/abs/master.txt
+    pids_limit: 65535
+    ulimits:
+      nproc: 65535
+```
+
+**`master_main/master.txt`** — just a static ID:
+```
+master_id = 1
+#
+```
+
+**`master_main/portas.txt`** — maps TCP port ↔ modem ID, one line per
+modem/client sharing this same Gateway/Master:
+```
+<BRIDGE_PORT_1>=<MODEM_ID_1>
+<BRIDGE_PORT_2>=<MODEM_ID_2>
+#
+```
+
+Both images pull from `swr.abstelemetria.com` — no `docker login` needed
+once you have registry access.
+
+**Why `network_mode: host`**: both containers need the ABS modem port and
+the Modbus bridge ports exposed directly on the VM's network interfaces,
+not behind Docker's bridge network — that's how the physical modems (and
+SCADA-LTS's Modbus client) reach them.
+
+**Onboarding a new client on the shared instance** (this is the whole
+"process" — no automation for this yet, unlike sections 1-11):
+1. Add one line to `portas.txt`: `<new-port>=<modem-id>`.
+2. Apply it: `docker compose restart master_main` (no need to touch
+   `abs_gateway`).
+3. Inside the shared SCADA-LTS, create a new Modbus Data Source pointing at
+   the Docker bridge gateway IP (check with `docker network inspect`,
+   typically something like `172.18.0.1` — this is what a container inside
+   Docker's network sees as "the host") and the port you just added.
+4. Create a read-only user in SCADA-LTS, restricted to that one Data
+   Source (Permissions screen) — this is what actually separates one
+   client's view from another's on the shared instance, since they all log
+   into the same URL.
+
+**Data Source config in SCADA-LTS — settings that actually work** (found
+by trial and error, the defaults don't):
+
+| Field | Value | Why |
+|---|---|---|
+| Host | Docker bridge gateway IP (e.g. `172.18.0.1`) | Not `localhost` — the SCADA-LTS container needs the host-side bridge address |
+| Port | the bridge port you chose in `portas.txt` | |
+| Transport type | `TCP keep-alive` | |
+| Timeout (ms) | `4500` | The default 500ms fails with "no response from network" — round-trip over 4G to the modem is much slower than LAN |
+| Retries | `3` | |
+| Encapsulated | **checked/true** | Critical — forces modbus4j to build the frame with a full MBAP header, which is what the ABS master/datalogger expects on this channel |
+| Slave ID (readings) | `1` | The `200` from the ABS manual is only for direct serial access, not through the Gateway's TCP bridge |
+| Offset | same as the point's real register number | Despite the UI label saying "Offset (0-based)", it is **not** 0-based in practice on this bridge — subtracting 1 breaks the reading |
 
 ## 8. Cloudflare Tunnel
 

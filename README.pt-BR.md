@@ -132,12 +132,103 @@ antes de fixar.
 
 ## 7. ABS Gateway/Master (só se usar modem ABS Cel)
 
-Se o cliente tiver um modem celular ABS Cel fazendo a ponte Modbus, você
-precisa das imagens proprietárias da ABS Telemetria (`abs-gateway`,
-`abs-master`) — peça acesso ao registry deles, não são públicas. Sem
-modem ABS, pule esta etapa (o cliente pode ter outro tipo de fonte de
-dado, configurado como Data Source diferente dentro do próprio
-SCADA-LTS).
+**Isso é um padrão diferente de tudo que veio antes.** As seções 1-11
+deste guia cobrem um padrão de "um cliente = um container SCADA-LTS
+isolado + um banco" (padrão "formal": cada cliente totalmente separado,
+porta própria, domínio próprio). ABS Gateway/Master cobre um segundo
+padrão, distinto: **vários clientes compartilhando uma única instância de
+SCADA-LTS**, cada um com um modem celular ABS Cel físico fazendo a ponte
+Modbus, diferenciados só por permissão de usuário restrita (não por
+containers/bancos separados). Não misture os dois — decida por cliente
+qual padrão se aplica antes de provisionar.
+
+Se o cliente tiver um modem celular ABS Cel, você precisa das imagens
+proprietárias da ABS Telemetria (`abs-gateway`, `abs-master`) — peça
+acesso ao registry deles, não são públicas. Sem modem ABS, pule esta
+seção inteira (o cliente pode ter outro tipo de fonte de dado,
+configurado como Data Source diferente dentro do próprio SCADA-LTS, no
+padrão normal de container por cliente das seções 1-11).
+
+**`docker-compose.yml`** (stack separado, ex.: `/opt/abs/docker-compose.yml`):
+
+```yaml
+services:
+  abs_gateway:
+    image: swr.abstelemetria.com/abs-gateway:v1.20
+    container_name: abs_gateway
+    command: -port=<PORTA_ABS_GATEWAY> -mport=<PORTA_ABS_GATEWAY>
+    network_mode: "host"
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    pids_limit: 65535
+    ulimits:
+      nproc: 65535
+
+  master_main:
+    image: swr.abstelemetria.com/abs-master:v6.02
+    container_name: master_main
+    network_mode: "host"
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    volumes:
+      - ./master_main/portas.txt:/opt/abs/portas.txt
+      - ./master_main/master.txt:/opt/abs/master.txt
+    pids_limit: 65535
+    ulimits:
+      nproc: 65535
+```
+
+**`master_main/master.txt`** — só um ID estático:
+```
+master_id = 1
+#
+```
+
+**`master_main/portas.txt`** — mapeia porta TCP ↔ ID do modem, uma linha
+por modem/cliente compartilhando esse mesmo Gateway/Master:
+```
+<PORTA_BRIDGE_1>=<ID_MODEM_1>
+<PORTA_BRIDGE_2>=<ID_MODEM_2>
+#
+```
+
+As duas imagens puxam de `swr.abstelemetria.com` — sem precisar de
+`docker login` depois de ter acesso ao registry.
+
+**Por que `network_mode: host`**: os dois containers precisam da porta do
+modem ABS e das portas de bridge Modbus expostas direto nas interfaces de
+rede da VM, não atrás da rede bridge do Docker — é assim que os modems
+físicos (e o cliente Modbus do SCADA-LTS) conseguem alcançá-los.
+
+**Onboarding de cliente novo na instância compartilhada** (esse é o
+processo inteiro — ainda sem automação, diferente das seções 1-11):
+1. Adiciona uma linha no `portas.txt`: `<porta-nova>=<id-do-modem>`.
+2. Aplica: `docker compose restart master_main` (não precisa mexer no
+   `abs_gateway`).
+3. Dentro do SCADA-LTS compartilhado, cria um Data Source Modbus novo
+   apontando pro IP do gateway da rede bridge do Docker (confere com
+   `docker network inspect`, tipicamente algo como `172.18.0.1` — é o que
+   um container dentro da rede do Docker enxerga como "o host") e a porta
+   que você acabou de adicionar.
+4. Cria um usuário read-only no SCADA-LTS, restrito só a esse Data Source
+   (tela de Permissões) — é isso que de fato separa a visão de um cliente
+   da do outro na instância compartilhada, já que todos logam na mesma URL.
+
+**Configuração do Data Source no SCADA-LTS — valores que realmente
+funcionam** (descobertos por tentativa e erro, o padrão não funciona):
+
+| Campo | Valor | Por quê |
+|---|---|---|
+| Host | IP do gateway da rede bridge Docker (ex.: `172.18.0.1`) | Não é `localhost` — o container do SCADA-LTS precisa do endereço da bridge do lado do host |
+| Porta | a porta de bridge escolhida no `portas.txt` | |
+| Tipo de transporte | `TCP com manter-vivo` | |
+| Timeout (ms) | `4500` | O padrão de 500ms falha com "sem resposta da rede" — o round-trip via 4G até o modem é bem mais lento que rede local |
+| Retentativas | `3` | |
+| Encapsulado | **marcado/true** | Crítico — força o modbus4j a montar o frame com cabeçalho MBAP completo, que é o formato que o master/datalogger ABS espera nesse canal |
+| Id do escravo (leituras) | `1` | O `200` do manual ABS é só pra acesso serial direto, não se aplica via bridge TCP do Gateway |
+| Offset | igual ao número real do registro do ponto | Apesar do rótulo na UI dizer "Offset (baseado em 0)", na prática **não é** base-0 nessa bridge — subtrair 1 quebra a leitura |
 
 ## 8. Cloudflare Tunnel
 
