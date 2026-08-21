@@ -1,12 +1,12 @@
-# SCADA-LTS Multi-Tenant Deploy Guide
+# SCADA-LTS Deploy Guide
 
 *[Leia em português](README.pt-BR.md)*
 
-A from-scratch, step-by-step guide to running a **multi-tenant SCADA-LTS
-setup on a single cloud VM**: one shared MySQL instance, one isolated
-SCADA-LTS container per client, each with its own branded login/theme, and
-a **Node-RED automation** that provisions/publishes/deletes clients through
-a web form instead of manual clicking.
+A from-scratch, step-by-step guide to deploying a **branded SCADA-LTS
+instance for one client on one cloud VM**: Docker, MySQL, the SCADA-LTS
+container itself, an optional physical-modem bridge, a custom
+login/theme/logo for that client, and a public domain via Cloudflare
+Tunnel — no open inbound port anywhere.
 
 No real client name, IP, or secret anywhere in this repo — every value that
 needs to be real is a `<placeholder>` or `__ENV_VAR__`.
@@ -15,52 +15,44 @@ needs to be real is a `<placeholder>` or `__ENV_VAR__`.
 
 ```mermaid
 flowchart TB
-    subgraph VM["Single Cloud VM (Ubuntu, Docker)"]
-        MySQL[("MySQL 8\n(one DB per client)")]
-        subgraph Clients["One SCADA-LTS container per client"]
-            C1["scadalts-client-a\n:8080 internal"]
-            C2["scadalts-client-b\n:8080 internal"]
-            C3["scadalts-...\n:8080 internal"]
-        end
-        NodeRED["Node-RED\n(automation dashboard)"]
+    subgraph VM["One Cloud VM per client (Ubuntu, Docker)"]
+        MySQL[("MySQL 8")]
+        SCADA["scadalts-<client>\n:8080 internal, branded login/theme"]
         Cloudflared["cloudflared\n(native systemd)"]
-        C1 --> MySQL
-        C2 --> MySQL
-        C3 --> MySQL
-        NodeRED -->|creates/deletes/\npublishes domain| C1
-        NodeRED -->|creates/deletes/\npublishes domain| C2
-        NodeRED -.->|writes ingress rules to\n/etc/cloudflared/config.yml| Cloudflared
+        SCADA --> MySQL
     end
-    Admin["You\n(Tailscale)"] -->|:1880 UI| NodeRED
-    Admin -->|:8080+ per client| C1
-    Browser["Client's browser"] -->|https://client-a.yourdomain.com| Cloudflared
-    Cloudflared --> C1
+    Admin["You\n(Tailscale)"] -->|:8080| SCADA
+    Browser["Client's browser"] -->|https://client.yourdomain.com| Cloudflared
+    Cloudflared --> SCADA
 ```
 
 No inbound port is ever opened to the public internet for the app itself —
 access is either through Tailscale (private mesh network, for you) or
-through Cloudflare Tunnel (outbound-only connection from the VM, for
-clients with a public domain).
+through Cloudflare Tunnel (outbound-only connection from the VM, for the
+client's public domain).
+
+**Why one VM per client, not one shared VM for everyone**: full isolation.
+If one client's VM has a problem, no other client is affected — no shared
+database, no shared container runtime, no blast radius. It also means each
+VM's cost maps directly to one client's invoice.
 
 ## 1. What you'll end up with
 
-- One Linux VM running **MySQL** (one database per client) + **N SCADA-LTS
-  instances** (one per client, each its own Docker container) + **Node-RED**
-  (automation for creating/deleting a client and publishing a domain).
-- Each client reachable two ways: an internal IP (Tailscale, for you to
-  administer) and optionally a public domain
-  (`<client>.yourdomain.com`, via Cloudflare Tunnel — no open port).
-- A web form (Node-RED Dashboard) where you type the client's name/color/
-  login and it provisions everything by itself in 2-4 minutes.
+- One Linux VM running **MySQL** + **one SCADA-LTS instance**, branded with
+  that client's name/color/logo.
+- The client reachable two ways: an internal IP (Tailscale, for you to
+  administer) and a public domain (`<client>.yourdomain.com`, via
+  Cloudflare Tunnel — no open port).
+- Optionally, a physical Modbus bridge (section 7) if the client has an ABS
+  Cel cellular modem instead of another data source type.
 
 ## 2. Provision the VM
 
 Any cloud provider works; this project uses Hetzner Cloud (good
 price/performance, EU/US datacenters).
 
-- **Minimum specs**: 2 vCPU, 4GB RAM for a handful of clients (~3-5). Each
-  SCADA-LTS instance uses ~350-500MB RAM; budget
-  `500MB × concurrent clients + 1GB for MySQL/Node-RED/OS`.
+- **Minimum specs**: 2 vCPU, 4GB RAM — one SCADA-LTS instance uses
+  ~350-500MB RAM, the rest is MySQL/OS/headroom.
 - **OS**: Ubuntu 24.04 LTS.
 - **Cost**: a Hetzner `cx23`-class VM (2 vCPU/4GB) runs roughly €6-7/month
   at the time of writing — check current pricing, this changes.
@@ -76,14 +68,13 @@ from the VM, not inbound).
 |---|---|---|
 | 22 | SSH | Your IP only, or better: Tailscale-only |
 | 3306 | MySQL | Never exposed — internal Docker network only |
-| 8080+ (one per client) | SCADA-LTS (Tomcat) | Only on the VM's Tailscale IP (private mesh network) |
-| 1880 | Node-RED (automation dashboard) | Only on the VM's Tailscale IP |
+| 8080 | SCADA-LTS (Tomcat) | Only on the VM's Tailscale IP (private mesh network) |
 | — | Cloudflare Tunnel | No port — outbound connection from the VM to Cloudflare |
-| 6000-6100 (if using ABS Cel modems) | Gateway's Modbus bridge | Internal Docker network only, between Gateway and SCADA-LTS |
+| 6000+ (if using an ABS Cel modem) | Gateway's Modbus bridge | Internal Docker network only, between Gateway and SCADA-LTS |
 
 Install **Tailscale** on the VM (`curl -fsSL https://tailscale.com/install.sh | sh`,
-then `tailscale up`) — that's how you reach everything without opening a
-single port to the world.
+then `tailscale up`) — that's how you reach it without opening a single
+port to the world.
 
 ## 4. Install Docker
 
@@ -92,7 +83,7 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 ```
 
-## 5. Bring up MySQL (shared database)
+## 5. Bring up MySQL
 
 Create `/opt/scadalts/stack/docker-compose.yml`:
 
@@ -132,23 +123,13 @@ version for production. Check the current release at
 [github.com/SCADA-LTS/Scada-LTS/releases](https://github.com/SCADA-LTS/Scada-LTS/releases)
 before pinning.
 
-## 7. ABS Gateway/Master (only if using ABS Cel modems)
+## 7. ABS Gateway/Master (only if the client has an ABS Cel modem)
 
-**This is a different pattern from everything above.** Sections 1-11 of
-this guide cover one client = one isolated SCADA-LTS container + one
-database (the "formal" pattern: each client fully separate, own port, own
-domain). ABS Gateway/Master covers a second, distinct pattern: **several
-clients sharing a single SCADA-LTS instance**, each with a physical ABS
-Cel cellular modem doing the Modbus bridge, distinguished only by
-restricted user permissions (not separate containers/databases). Don't mix
-the two — decide per client which pattern applies before provisioning.
-
-If a client has an ABS Cel cellular modem, you need ABS Telemetria's
-proprietary Docker images (`abs-gateway`, `abs-master`) — request registry
-access from them, they're not public. Without an ABS modem, skip this
-whole section (the client can have another data source type, configured
-as a different Data Source inside SCADA-LTS itself, under the normal
-per-client-container pattern from sections 1-11).
+If the client has an ABS Cel cellular modem doing the Modbus bridge, you
+need ABS Telemetria's proprietary Docker images (`abs-gateway`,
+`abs-master`) — request registry access from them, they're not public.
+Without an ABS modem, skip this whole section (the client can have another
+data source type, configured as a Data Source inside SCADA-LTS itself).
 
 **`docker-compose.yml`** (separate stack, e.g. `/opt/abs/docker-compose.yml`):
 
@@ -187,11 +168,11 @@ master_id = 1
 #
 ```
 
-**`master_main/portas.txt`** — maps TCP port ↔ modem ID, one line per
-modem/client sharing this same Gateway/Master:
+**`master_main/portas.txt`** — maps TCP port ↔ modem ID. On a
+one-client-per-VM setup this file only ever has one line (this client's
+modem), since there's nothing else sharing the Gateway:
 ```
-<BRIDGE_PORT_1>=<MODEM_ID_1>
-<BRIDGE_PORT_2>=<MODEM_ID_2>
+<BRIDGE_PORT>=<MODEM_ID>
 #
 ```
 
@@ -199,31 +180,17 @@ Both images pull from `swr.abstelemetria.com` — no `docker login` needed
 once you have registry access.
 
 **Why `network_mode: host`**: both containers need the ABS modem port and
-the Modbus bridge ports exposed directly on the VM's network interfaces,
-not behind Docker's bridge network — that's how the physical modems (and
+the Modbus bridge port exposed directly on the VM's network interfaces, not
+behind Docker's bridge network — that's how the physical modem (and
 SCADA-LTS's Modbus client) reach them.
-
-**Onboarding a new client on the shared instance** (this is the whole
-"process" — no automation for this yet, unlike sections 1-11):
-1. Add one line to `portas.txt`: `<new-port>=<modem-id>`.
-2. Apply it: `docker compose restart master_main` (no need to touch
-   `abs_gateway`).
-3. Inside the shared SCADA-LTS, create a new Modbus Data Source pointing at
-   the Docker bridge gateway IP (check with `docker network inspect`,
-   typically something like `172.18.0.1` — this is what a container inside
-   Docker's network sees as "the host") and the port you just added.
-4. Create a read-only user in SCADA-LTS, restricted to that one Data
-   Source (Permissions screen) — this is what actually separates one
-   client's view from another's on the shared instance, since they all log
-   into the same URL.
 
 **Data Source config in SCADA-LTS — settings that actually work** (found
 by trial and error, the defaults don't):
 
 | Field | Value | Why |
 |---|---|---|
-| Host | Docker bridge gateway IP (e.g. `172.18.0.1`) | Not `localhost` — the SCADA-LTS container needs the host-side bridge address |
-| Port | the bridge port you chose in `portas.txt` | |
+| Host | Docker bridge gateway IP (e.g. `172.18.0.1`, check with `docker network inspect`) | Not `localhost` — the SCADA-LTS container needs the host-side bridge address |
+| Port | the bridge port from `portas.txt` | |
 | Transport type | `TCP keep-alive` | |
 | Timeout (ms) | `4500` | The default 500ms fails with "no response from network" — round-trip over 4G to the modem is much slower than LAN |
 | Retries | `3` | |
@@ -245,6 +212,8 @@ by trial and error, the defaults don't):
    tunnel: <your-tunnel-id>
    credentials-file: /etc/cloudflared/<your-tunnel-id>.json
    ingress:
+     - hostname: <client>.yourdomain.com
+       service: http://localhost:8080
      - service: http_status:404
    ```
 4. Systemd service to keep it running:
@@ -253,125 +222,73 @@ by trial and error, the defaults don't):
    systemctl enable --now cloudflared
    ```
 
-**Automatic reload watcher** — since every new client needs a new line
-under `ingress:`, and manually restarting `cloudflared` every time is
-annoying/easy to forget, set up a systemd watcher that restarts it by
-itself whenever the file changes (files provided in
-`systemd/cloudflared-reload.path` and `systemd/cloudflared-reload.service`
-in this repo):
+One VM, one client, one `ingress` rule — no watcher/automation needed here,
+you write the file once when you set the VM up.
+
+## 9. Create the client — branding + bring-up
+
+Stock SCADA-LTS has a generic login screen and a technical "watch list"
+home page. To give this client their own name/color/logo, you swap 4 files
+inside the container **before** starting it, using the templates in this
+repo's `templates/` folder.
+
+**9.1 — Render the templates.** Pick the client's name (lowercase,
+no spaces/accents — it becomes the database name), a theme color, and a
+DB password. Then:
 
 ```bash
-cp systemd/cloudflared-reload.* /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now cloudflared-reload.path
+NOME=<client-name>       # e.g. acme
+COR=<#hex-color>          # e.g. #1b5c94
+DB_SENHA=<strong-password>
+
+mkdir -p /opt/scadalts/stack/clients/$NOME/login \
+         /opt/scadalts/stack/clients/$NOME/graphics \
+         /opt/scadalts/stack/clients/$NOME/tomcat_log
+
+cd templates   # this repo's templates/ folder
+
+sed "s/{{NOME_CLIENTE}}/$NOME/g; s/{{DB_SENHA}}/$DB_SENHA/g" \
+  context.xml > /opt/scadalts/stack/clients/$NOME/context.xml
+
+cp env.properties /opt/scadalts/stack/clients/$NOME/env.properties
+
+sed "s/{{COR_TEMA}}/$COR/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+  login-theme.css > /opt/scadalts/stack/clients/$NOME/login/login-theme.css
+
+sed "s/{{CLIENTE_NOME}}/$NOME/g" \
+  login.jsp > /opt/scadalts/stack/clients/$NOME/login/login.jsp
+
+sed "s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+  home.html > /opt/scadalts/stack/clients/$NOME/graphics/home.html
 ```
 
-## 9. Node-RED (client automation)
+Drop the client's actual logo (PNG) at
+`/opt/scadalts/stack/clients/$NOME/login/$NOME-logo.png` — that's the file
+`login.jsp` and `home.html` reference.
+
+| File | Purpose | Where it lands in the container |
+|---|---|---|
+| `login.jsp` | Replaces the default login screen | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
+| `login-theme.css` | Theme color on the login screen | `assets/login-theme.css` (bind mount `:ro`) |
+| `home.html` | Landing page after login (instead of the default technical "watch list") | inside `graphics/`, mounted whole — the login points here (`homeUrl: /graphics/home.html`) |
+| `context.xml` | Points Tomcat at this client's MySQL database | `META-INF/context.xml` (bind mount `:ro`) |
+| `env.properties` | Standard SCADA-LTS config, no placeholders, copied as-is | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
+
+**9.2 — Create the database.**
 
 ```bash
-mkdir -p /opt/node-red/data
+docker exec mysql mysql -u root -p<mysql-root-password> -e \
+  "CREATE DATABASE IF NOT EXISTS scadalts_$NOME;
+   CREATE USER IF NOT EXISTS 'scadalts_$NOME'@'%' IDENTIFIED BY '$DB_SENHA';
+   GRANT ALL PRIVILEGES ON scadalts_$NOME.* TO 'scadalts_$NOME'@'%';
+   FLUSH PRIVILEGES;"
 ```
 
-`/opt/node-red/docker-compose.yml`:
+**9.3 — Add the service to `docker-compose.yml`.** Append this block
+(don't re-run a full `yaml.dump`/rewrite of the file if you're scripting
+this — see the note below on why):
 
 ```yaml
-services:
-  node-red:
-    build: .
-    image: node-red-com-docker
-    container_name: node-red
-    restart: unless-stopped
-    user: root
-    ports:
-      - "<VM_TAILSCALE_IP>:1880:1880"
-    volumes:
-      - ./data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/scadalts/stack:/opt/scadalts/stack
-      - /etc/cloudflared/config.yml:/etc/cloudflared/config.yml
-      - /opt/_backups_pre_reorg:/opt/_backups_pre_reorg
-    networks:
-      - default
-      - scadalts_net
-networks:
-  default: {}
-  scadalts_net:
-    external: true
-    name: stack_default
-```
-
-`Dockerfile` next to it (the base Node-RED image doesn't ship Docker CLI or
-PyYAML, and the automation flow needs both):
-
-```dockerfile
-FROM nodered/node-red:latest
-USER root
-RUN apk add --no-cache docker-cli docker-cli-compose py3-yaml
-USER node-red
-```
-
-```bash
-cd /opt/node-red && docker compose up -d
-```
-
-Copy `node-red-flows/flows.json` from this repo to
-`/opt/node-red/data/flows.json` — this is the **full, real** automation, not
-a description, import it directly: client creation form (name, 12-color
-palette, login/password with confirmation), live progress bar, "Publish
-domain" button, "Delete" button with master password + automatic backup, a
-lock preventing two heavy operations from running at once. Before starting,
-swap the placeholders in the file:
-
-| Placeholder | What it is |
-|---|---|
-| `__CF_API_TOKEN__` | Cloudflare API token (see below) |
-| `__CF_ZONE_ID__` | Zone/domain ID in Cloudflare (Dashboard → your domain → right sidebar) |
-| `__CF_TUNNEL_ID__` | Tunnel ID created in step 8 |
-| `__TAILSCALE_IP_DA_VM__` | Your VM's Tailscale IP |
-| `__SEU_DOMINIO__` | Your domain (e.g. `example.com`) |
-| `__MYSQL_ROOT_PASSWORD__` | MySQL password set in step 5 |
-| `__MASTER_PASSWORD_EXCLUIR__` | Password you choose to confirm client deletion |
-
-Also copy `node-red-flows/novo_cliente.py` from this repo to
-`/opt/scadalts/stack/scripts/novo_cliente.py` — it's the script the flow
-calls to create the database/container. **This file needs two placeholders
-swapped, not one**: `__TAILSCALE_IP_DA_VM__` *and* `__MYSQL_ROOT_PASSWORD__`
-(it runs `mysql -u root -p...` directly). Skipping the second one fails with
-`ERROR 1045 (28000): Access denied for user 'root'@'localhost'` the first
-time you try to create a client.
-
-Finally, copy the branding templates from `node-red-flows/templates/` (see
-section 10 below) to `/opt/scadalts/stack/_template/` — `novo_cliente.py`
-expects them there and will fail if the folder doesn't exist:
-
-```bash
-mkdir -p /opt/scadalts/stack/_template
-cp node-red-flows/templates/* /opt/scadalts/stack/_template/
-```
-
-The base `nodered/node-red` image does **not** ship with the dashboard UI
-or the MySQL node — `flows.json` needs both. Install them before restarting:
-
-```bash
-docker exec node-red sh -c 'cd /data && npm install node-red-dashboard node-red-node-mysql'
-```
-
-Restart the Node-RED container after placing all the files above and
-installing these two packages.
-
-**Cloudflare token for the "Publish domain" button**: create one at
-[dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens),
-permissions `Zone → DNS → Edit` + `Account → Cloudflare Tunnel → Edit`,
-scoped to your zone only.
-
-## 9b. What a client's service looks like in `docker-compose.yml`
-
-`novo_cliente.py` automatically appends a block like this (real example,
-generated by the script) — this is what ties together database, container,
-theme, and domain into one thing:
-
-```yaml
-services:
   scadalts-<name>:
     image: scadalts/scadalts:v2.7.8.1
     restart: unless-stopped
@@ -379,7 +296,7 @@ services:
       - CATALINA_OPTS=-Xmx384m -Xms192m
       - TZ=America/Sao_Paulo
     ports:
-      - <VM_TAILSCALE_IP>:<port>:8080
+      - 8080:8080
     depends_on:
       - database
     volumes:
@@ -408,42 +325,32 @@ much RAM on its own; tune it to the client's actual data/graphics volume.
 `wait-for-it` makes sure Tomcat only tries to start after MySQL is up
 (avoids a connection error on first boot).
 
-## 10. The branded login/home pages
+> **Why append instead of rewrite the whole file**: parsing the entire
+> `docker-compose.yml` with a YAML library and dumping it back reformats
+> the whole file — and Docker Compose computes a per-service config hash
+> from the file's current content. Even an unrelated formatting change can
+> make it think `database` (MySQL) changed too, and **silently recreate
+> it** the next time you run `docker compose up` — right as this new
+> client's SCADA-LTS is trying to connect to the database for the first
+> time. Found this the hard way; append-only (or a surgical text edit that
+> touches only this client's block) avoids it entirely.
 
-Stock SCADA-LTS has a generic login screen and a technical "watch list" home
-— to give each client their own color/logo, `novo_cliente.py` (step 9)
-swaps 4 files inside the container before starting it, using this repo's
-templates in `node-red-flows/templates/`:
+```bash
+cd /opt/scadalts/stack && docker compose up -d scadalts-$NOME
+```
 
-| File | Purpose | Placeholders | Where it lands in the container |
-|---|---|---|---|
-| `login.jsp` | Replaces the default SCADA-LTS login screen | `{{CLIENTE_NOME}}`, `{{LOGO_FILENAME}}` | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
-| `login-theme.css` | Theme color applied on the login screen | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{COR_TEMA_HOVER}}` | `assets/login-theme.css` (bind mount `:ro`) |
-| `home.html` | Custom landing page the client sees after logging in (instead of the default technical "watch list") | `{{CLIENTE_NOME}}`, `{{COR_TEMA}}`, `{{LOGO_FILENAME}}` | inside the `graphics/` folder, mounted whole (`graphics:rw`) — that's where the client's login points (`homeUrl: /graphics/home.html`) |
-| `context.xml` | Points Tomcat at the right MySQL database for this client | `{{NOME_CLIENTE}}`, `{{DB_SENHA}}` | `META-INF/context.xml` (bind mount `:ro`) |
-| `env.properties` | Standard SCADA-LTS config (no placeholder, copied as-is for every client) | — | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
+**9.4 — Wait for it, then check.**
 
-**How the substitution works**: the script reads each template, swaps
-`{{PLACEHOLDER}}` for the real value (client name, hex color picked in the
-form, logo filename), writes the result to
-`/opt/scadalts/stack/clients/<name>/`, and the generated
-`docker-compose.yml` service (section 9b) mounts each file **on top of**
-SCADA-LTS's default file inside the image via `volumes:` — one mount per
-file, plus one whole-folder mount (`graphics/`) for `home.html` + the logo.
+```bash
+until curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/Scada-LTS/login.htm | grep -q 200; do
+  sleep 3
+done
+echo "up"
+```
 
-To swap the **logo**: drop the client's PNG at
-`/opt/scadalts/stack/clients/<name>/graphics/<name>-logo-full.png` (used in
-`home.html`) and `/opt/scadalts/stack/clients/<name>/login/<name>-logo.png`
-(used in `login.jsp`) — `novo_cliente.py` already knows how to mount those
-paths, the files just need to exist before the container starts.
-
-## 11. Create your first client
-
-With everything up: open the Node-RED dashboard, "New Client" tab, fill in
-name/color/login, click Create. Watch the progress bar (takes 2-4 minutes,
-most of it is Tomcat booting). At the end, the client shows up in the
-"Active Clients" tab with an access link — click "Publish domain" there if
-you want a public link too.
+Open `http://<vm-tailscale-ip>:8080/Scada-LTS/login.htm` — you should see
+the branded login screen (client name, chosen color). Log in with
+SCADA-LTS's default admin, create the client's actual users from there.
 
 ## Summary of "what to download"
 
@@ -453,18 +360,20 @@ you want a public link too.
 | MySQL image | `docker pull mysql/mysql-server:8.0.32` | No |
 | `cloudflared` | Cloudflare's GitHub releases | No (but you need a Cloudflare account to create the tunnel) |
 | ABS Gateway/Master images | ABS Telemetria's private registry | Yes, only if using an ABS Cel modem |
-| `flows.json`, `novo_cliente.py`, templates | This repo | No |
+| Branding templates (`templates/`) | This repo | No |
 
 ## Known gaps (honest, not swept under the rug)
 
-- **Not yet validated end-to-end on a fresh VM** by an independent run of
-  this exact guide — it reflects a real, working deployment, but the guide
-  itself hasn't been dry-run from a blank VM top to bottom.
-- **No automated client-database backup yet** — only the "Delete" flow
-  backs up a specific client's database, right before removing it. There's
-  no periodic backup of the databases still running.
+- **No automated client-database backup** — you're responsible for backing
+  up `db_data` and the client's config yourself; nothing in this repo does
+  it for you.
 - **No CI/tests** — this is documentation + config templates, not a tested
   codebase.
+- **Multiple clients sharing one VM/database** is a different, more
+  advanced pattern (shared SCADA-LTS instance, restricted per-user
+  permissions instead of separate containers) that this guide intentionally
+  doesn't cover — it trades isolation for lower cost, and needs its own
+  automation to be manageable at scale.
 
 ## License
 
