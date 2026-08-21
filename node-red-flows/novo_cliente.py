@@ -134,48 +134,50 @@ def main():
             encoding="utf-8",
         )
 
-    # 3. adiciona servico no docker-compose.yml (via yaml, preserva o resto)
-    import yaml
-    with open(COMPOSE_FILE) as f:
-        compose = yaml.safe_load(f)
-
+    # 3. adiciona servico no docker-compose.yml -- anexa como TEXTO, nunca
+    # reescreve o arquivo inteiro via yaml.safe_load/dump. Um yaml.dump
+    # completo reformata o arquivo inteiro (mesmo sem mudar valores), e
+    # isso faz o Docker Compose achar que OUTROS servicos (o "database"/
+    # mysql, por exemplo) tambem mudaram de config -- recriando o MySQL
+    # sem querer bem na hora que o cliente novo tenta conectar nele.
+    # Achado com investigacao ao vivo em 2026-08-21: causa real dos
+    # timeouts intermitentes no boot do Tomcat de clientes novos.
     service_name = f"scadalts-{nome}"
-    compose["services"][service_name] = {
-        "image": "scadalts/scadalts:v2.7.8.1",
-        "restart": "unless-stopped",
-        "environment": [
-            "CATALINA_OPTS=-Xmx384m -Xms192m",
-            "TZ=America/Sao_Paulo",
-        ],
-        "ports": [f"__TAILSCALE_IP_DA_VM__:{porta}:8080"],
-        "depends_on": ["database"],
-        "volumes": [
-            f"./clients/{nome}/tomcat_log:/usr/local/tomcat/logs:rw",
-            f"./clients/{nome}/context.xml:/usr/local/tomcat/webapps/Scada-LTS/META-INF/context.xml:ro",
-            f"./clients/{nome}/env.properties:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/classes/env.properties:ro",
-            f"./clients/{nome}/graphics:/usr/local/tomcat/webapps/Scada-LTS/graphics:rw",
-            f"./clients/{nome}/login/login-theme.css:/usr/local/tomcat/webapps/Scada-LTS/assets/login-theme.css:ro",
-            f"./clients/{nome}/login/{logo_filename}:/usr/local/tomcat/webapps/Scada-LTS/assets/{logo_filename}:ro",
-            f"./clients/{nome}/login/login.jsp:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/jsp/login.jsp:ro",
-        ],
-        "links": ["database:database"],
-        "command": [
-            "/usr/bin/wait-for-it",
-            "--host=database",
-            "--port=3306",
-            "--timeout=60",
-            "--strict",
-            "--",
-            "/usr/local/tomcat/bin/catalina.sh",
-            "run",
-        ],
-    }
-
     backup_path = COMPOSE_FILE.with_suffix(f".yml.bak.novocliente-{nome}")
     backup_path.write_text(COMPOSE_FILE.read_text())
 
-    with open(COMPOSE_FILE, "w") as f:
-        yaml.safe_dump(compose, f, default_flow_style=False, sort_keys=False)
+    service_yaml = f"""  {service_name}:
+    image: scadalts/scadalts:v2.7.8.1
+    restart: unless-stopped
+    environment:
+    - CATALINA_OPTS=-Xmx384m -Xms192m
+    - TZ=America/Sao_Paulo
+    ports:
+    - __TAILSCALE_IP_DA_VM__:{porta}:8080
+    depends_on:
+    - database
+    volumes:
+    - ./clients/{nome}/tomcat_log:/usr/local/tomcat/logs:rw
+    - ./clients/{nome}/context.xml:/usr/local/tomcat/webapps/Scada-LTS/META-INF/context.xml:ro
+    - ./clients/{nome}/env.properties:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/classes/env.properties:ro
+    - ./clients/{nome}/graphics:/usr/local/tomcat/webapps/Scada-LTS/graphics:rw
+    - ./clients/{nome}/login/login-theme.css:/usr/local/tomcat/webapps/Scada-LTS/assets/login-theme.css:ro
+    - ./clients/{nome}/login/{logo_filename}:/usr/local/tomcat/webapps/Scada-LTS/assets/{logo_filename}:ro
+    - ./clients/{nome}/login/login.jsp:/usr/local/tomcat/webapps/Scada-LTS/WEB-INF/jsp/login.jsp:ro
+    links:
+    - database:database
+    command:
+    - /usr/bin/wait-for-it
+    - --host=database
+    - --port=3306
+    - --timeout=60
+    - --strict
+    - --
+    - /usr/local/tomcat/bin/catalina.sh
+    - run
+"""
+    with open(COMPOSE_FILE, "a") as f:
+        f.write(service_yaml)
 
     # 4. sobe o container novo
     sh(f"cd {STACK_DIR} && docker compose up -d {service_name}")
