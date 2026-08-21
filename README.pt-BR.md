@@ -433,6 +433,11 @@ que caiu na home personalizada.
   usuário em vez de containers separados) que este guia deliberadamente
   não cobre — troca isolamento por custo menor, e precisa da própria
   automação pra ser administrável em escala.
+- **A casca do `home.html` está validada, as telas de dado ainda não** —
+  o fluxo de menu/tema/logo/login foi testado ponta a ponta numa VM real.
+  As abas Mapa, Histórico e Alarmes leem ao vivo dos Data Points do
+  SCADA-LTS, e ainda não foram conferidas contra um Data Source real (ou
+  virtual/de teste) — só confirmado que a página carrega sem erro de JS.
 
 ## Licença
 

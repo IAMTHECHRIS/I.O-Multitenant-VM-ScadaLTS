@@ -426,6 +426,11 @@ back in to confirm it lands on the branded home page.
   permissions instead of separate containers) that this guide intentionally
   doesn't cover — it trades isolation for lower cost, and needs its own
   automation to be manageable at scale.
+- **`home.html`'s shell is validated, its data views aren't yet** — the
+  menu/theme/logo/auth flow was tested end-to-end on a real VM. The Map,
+  History, and Alarms tabs read live from SCADA-LTS's Data Points, and
+  haven't been checked yet against a real (or virtual/test) Data Source —
+  only confirmed that the page structure loads without JS errors.
 
 ## License
 
