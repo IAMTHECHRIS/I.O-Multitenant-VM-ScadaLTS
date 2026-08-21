@@ -352,6 +352,25 @@ Open `http://<vm-tailscale-ip>:8080/Scada-LTS/login.htm` — you should see
 the branded login screen (client name, chosen color). Log in with
 SCADA-LTS's default admin, create the client's actual users from there.
 
+**9.5 — Make each user land on the custom home page, not the default
+watch list.** Without this step, logging in shows SCADA-LTS's stock
+"watch list" screen, not the `home.html` you branded in step 9.1 — this
+field is per-user and isn't set by anything above.
+
+For each user (including `admin`, or whichever account the client will
+actually use): `Users → <username> → Home URL` field, set to:
+
+```
+graphics/home.html
+```
+
+**Must be exactly this — a relative path, no leading slash, no domain.**
+A value like `/graphics/home.html` or a full URL breaks the post-login
+redirect (it 404s on a mangled `/S/...` path) — this isn't a typo risk,
+it's how SCADA-LTS's own `parseHomeUrl()` only strips *leading* slashes,
+so a value that isn't already relative stays broken. Save, log out, log
+back in to confirm it lands on the branded home page.
+
 ## Summary of "what to download"
 
 | What | From where | Needs an account/token? |

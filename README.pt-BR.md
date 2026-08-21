@@ -358,6 +358,26 @@ aparecer a tela de login personalizada (nome do cliente, cor escolhida).
 Loga com o admin padrão do SCADA-LTS, cria os usuários reais do cliente
 por lá.
 
+**9.5 — Faz cada usuário cair na home personalizada, não na watch list
+padrão.** Sem esse passo, logar mostra a tela nativa "watch list" do
+SCADA-LTS, não o `home.html` que você personalizou no passo 9.1 — esse
+campo é por usuário e nada acima o configura sozinho.
+
+Pra cada usuário (incluindo o `admin`, ou a conta que o cliente vai usar
+de verdade): campo `Users → <usuário> → Home URL`, definido como:
+
+```
+graphics/home.html
+```
+
+**Precisa ser exatamente assim — caminho relativo, sem barra no início,
+sem domínio.** Um valor como `/graphics/home.html` ou uma URL completa
+quebra o redirect pós-login (dá 404 num caminho `/S/...` bagunçado) —
+não é risco de digitação, é assim que o próprio `parseHomeUrl()` do
+SCADA-LTS só tira barra do **início**, então um valor que já não vem
+relativo continua quebrado. Salva, desloga, loga de novo pra confirmar
+que caiu na home personalizada.
+
 ## Resumo do "que baixar"
 
 | O quê | De onde | Precisa de conta/token? |
