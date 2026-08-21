@@ -239,6 +239,7 @@ DB password. Then:
 ```bash
 NOME=<client-name>       # e.g. acme
 COR=<#hex-color>          # e.g. #1b5c94
+COR_HOVER=<#hex-color, slightly darker/lighter than COR>  # used on button hover
 DB_SENHA=<strong-password>
 
 mkdir -p /opt/scadalts/stack/clients/$NOME/login \
@@ -252,13 +253,13 @@ sed "s/{{NOME_CLIENTE}}/$NOME/g; s/{{DB_SENHA}}/$DB_SENHA/g" \
 
 cp env.properties /opt/scadalts/stack/clients/$NOME/env.properties
 
-sed "s/{{COR_TEMA}}/$COR/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   login-theme.css > /opt/scadalts/stack/clients/$NOME/login/login-theme.css
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   login.jsp > /opt/scadalts/stack/clients/$NOME/login/login.jsp
 
-sed "s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   home.html > /opt/scadalts/stack/clients/$NOME/graphics/home.html
 ```
 
