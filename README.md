@@ -267,6 +267,24 @@ Drop the client's actual logo (PNG) at
 `/opt/scadalts/stack/clients/$NOME/login/$NOME-logo.png` — that's the file
 `login.jsp` and `home.html` reference.
 
+**Do this before step 9.3 (`docker compose up`), even if you don't have
+the real logo yet.** The compose block below bind-mounts this exact file
+path into the container. If the file doesn't exist yet when the
+container is created, Docker silently creates a **directory** there
+instead of failing — and dropping the real PNG in afterward doesn't fix
+it (the container already has a directory mounted, not a file). If you
+don't have the logo ready, create an empty placeholder first so the bind
+mount has a real file to attach to:
+
+```bash
+touch /opt/scadalts/stack/clients/$NOME/login/$NOME-logo.png
+```
+
+Swap in the real PNG later, then recreate the container
+(`docker compose up -d --force-recreate scadalts-$NOME`) — a plain
+`docker restart` isn't enough, it has to be recreated for the bind mount
+to re-evaluate the file.
+
 | File | Purpose | Where it lands in the container |
 |---|---|---|
 | `login.jsp` | Replaces the default login screen | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
