@@ -1,40 +1,2863 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="{{COR_TEMA}}">
     <link rel="apple-touch-icon" href="{{LOGO_FILENAME}}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ARÍETE</title>
+
     <link id="dynamic-favicon" rel="icon" href="{{LOGO_FILENAME}}" type="image/png">
     <link rel="shortcut icon" href="{{LOGO_FILENAME}}" type="image/png">
-    <title>{{CLIENTE_NOME}}</title>
+
+    <!-- Google Fonts: DM Sans (UI) + DM Mono (valores) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="vendor/leaflet.css" />
+    <script src="vendor/leaflet.js"></script>
+
+    <link rel="stylesheet" href="vendor/flatpickr.min.css">
+    <script src="vendor/flatpickr.min.js"></script>
+    <script src="vendor/pt.js"></script>
+
+    <script src="vendor/chart.min.js"></script>
+    <script src="vendor/cdn.min.js"></script>
+    <script src="vendor/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="vendor/chartjs-plugin-zoom.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #f4f6f8;
+        /* ===================== RESET & BASE ===================== */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary:       {{COR_TEMA}};
+            --primary-dark:  {{COR_TEMA_HOVER}};
+            --primary-light: color-mix(in srgb, {{COR_TEMA}}, white 35%);
+            --accent:        #c99a2e;
+            --accent-light:  #e0b854;
+            --accent-dark:   #a67d1f;
+
+            --bg-body:       #e6f0fa;
+            --bg-card:       #ffffff;
+            --bg-header:     #ffffff;
+            --bg-nav:        #f0f4f8;
+            --text-main:     #2c3e50;
+            --text-muted:    #5d6d7e;
+            --text-light:    #8a9aa8;
+            --border-color:  #d4dfe9;
+            --shadow-sm:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow:        0 4px 16px rgba(44,62,80,0.08), 0 1px 4px rgba(44,62,80,0.05);
+            --shadow-lg:     0 10px 30px rgba(44,62,80,0.12), 0 2px 8px rgba(44,62,80,0.06);
+
+            --chart-grid:    #d4dfe9;
+            --chart-text:    #5d6d7e;
+
+            --alm-bg-active:    #ffebee;
+            --alm-border-active: var(--accent);
+            --alm-bg-rtn:       #e8f0fe;
+            --alm-border-rtn:   var(--primary);
+
+            --topbar-height: 64px;
+            --footer-height: 48px;
+            --radius-sm:     6px;
+            --radius:        10px;
+            --radius-lg:     14px;
+        }
+
+        body.dark-mode {
+            --bg-body:       #151f2a;
+            --bg-card:       #1e2d3d;
+            --bg-header:     #1e2d3d;
+            --bg-nav:        #243447;
+            --text-main:     #dce8f0;
+            --text-muted:    #8aaabb;
+            --text-light:    #5d7a8a;
+            --border-color:  #2d4558;
+            --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
+            --shadow:        0 4px 16px rgba(0,0,0,0.3);
+            --shadow-lg:     0 10px 30px rgba(0,0,0,0.4);
+            --chart-grid:    #2d4558;
+            --chart-text:    #8aaabb;
+            --alm-bg-active: #3d1a1a;
+            --alm-border-active: var(--accent);
+            --alm-bg-rtn:    #112240;
+            --alm-border-rtn: #4a7fa5;
+        }
+
+        html, body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===================== CONNECTION BANNER ===================== */
+        #connection-banner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%;
+            background: linear-gradient(90deg, var(--accent-dark), var(--accent));
+            color: white;
+            text-align: center;
+            padding: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            z-index: 9999;
+            box-shadow: 0 2px 8px rgba(211,47,47,0.4);
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to   { transform: translateY(0); }
+        }
+
+        /* ===================== APP SHELL ===================== */
+        #scada-app {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Hide old sidebar/topbar */
+        #sidebar, #topbar { display: none !important; }
+
+        /* ===================== NEW TOPBAR ===================== */
+        #new-topbar {
+            height: var(--topbar-height);
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
+            z-index: 1000;
+            position: relative;
+        }
+
+        /* Thin accent line at bottom of topbar */
+        #new-topbar::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--primary) 40%, transparent 100%);
+            opacity: 0.6;
+        }
+
+        .brand a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .brand img {
+            height: 44px;
+            width: auto;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .brand img:hover {
+            opacity: 0.85;
+            transform: scale(1.03);
+        }
+
+        /* ===================== NAV MENU ===================== */
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: var(--bg-nav);
+            padding: 4px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .menu-item {
+            padding: 7px 18px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 13px;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .menu-item i {
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .alarm-badge {
+            position: absolute;
+            top: 1px;
+            left: 20px;
+            background: #e5484d;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 8px;
+            min-width: 14px;
+            text-align: center;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .menu-item:hover {
+            background: var(--border-color);
+            color: var(--text-main);
+        }
+
+        .menu-item:hover i {
+            transform: scale(1.1);
+        }
+
+        .dark-mode .menu-item:hover {
+            background: var(--primary-dark);
+        }
+
+        .menu-item.active {
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.25);
+        }
+
+        .menu-item.active i {
+            color: #ffffff;
+        }
+
+        .menu-tooltip { display: none; }
+
+        /* ===================== USER AREA ===================== */
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-nav);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .user-profile i { font-size: 15px; color: var(--primary); }
+
+        body.dark-mode .user-profile i { color: var(--text-muted); }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 15px;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
+            background: var(--bg-nav);
+            border: 1px solid var(--border-color);
+            text-decoration: none;
         }
-        .card {
-            background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 4px 24px rgba(16,24,40,.10);
-            padding: 40px 48px;
+
+        .icon-btn:hover {
+            background: var(--border-color);
+            color: var(--text-main);
+            transform: scale(1.05);
+        }
+
+        .dark-mode .icon-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        /* ===================== MAIN CONTENT ===================== */
+        #main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .page-title { display: none; }
+
+        /* ===================== VIEWS CONTAINER ===================== */
+        #views-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            padding: 16px;
+            background: var(--bg-body);
+            transition: background-color 0.3s;
+        }
+
+        .view-section {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        #view-home.active {
+            display: block;
+            overflow-y: auto;
+            animation: fadeIn 0.25s ease;
+        }
+
+        #view-map.active {
+            display: block;
+            overflow: hidden;
+            animation: fadeIn 0.25s ease;
+        }
+
+        #view-history.active {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: fadeIn 0.25s ease;
+        }
+
+        #view-alarms.active {
+            display: block;
+            overflow: hidden;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===================== FOOTER ===================== */
+        #app-footer {
+            height: var(--footer-height);
+            background: var(--bg-header);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            flex-shrink: 0;
+            z-index: 999;
+        }
+
+        .footer-left a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .footer-left a:hover { opacity: 0.75; }
+
+        .footer-left img { height: 26px; width: auto; }
+
+        .footer-right { display: flex; align-items: center; }
+
+        #footer-config-btn {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 18px;
+            background: var(--accent);
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 2px 10px rgba(211,47,47,0.3);
+        }
+
+        #footer-config-btn:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(211,47,47,0.4);
+        }
+
+        /* ===================== CARDS HOME (padrao I.O Projetos - instrumento) ===================== */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            padding: 4px 4px 16px;
+            max-width: 1700px;
+            margin: 0 auto;
+        }
+
+        .scada-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.2s;
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        .scada-card:hover { box-shadow: var(--shadow-lg); }
+
+        /* Cabecalho neutro (ISA-101: sem cor saturada preenchendo a faixa toda) */
+        .card-header, .map-card-header {
+            background: var(--bg-nav);
+            color: var(--text-main);
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 12.5px;
+            letter-spacing: 0.25px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .card-header i { font-size: 13px; margin-right: 7px; opacity: 0.75; color: var(--text-muted); }
+        .card-min-btn i { margin-right: 0; font-size: 10px; opacity: 1; color: inherit; line-height: 1; }
+
+        .map-card-header { padding-right: 35px; cursor: default; }
+
+        .header-time {
+            font-size: 10.5px;
+            font-weight: 400;
+            color: var(--text-light);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .card-min-btn {
+            width: 22px; height: 22px;
+            border-radius: 6px;
+            background: var(--border-color);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.25s;
+            flex-shrink: 0;
+        }
+        .scada-card.collapsed .card-min-btn i { transform: rotate(180deg); }
+
+        .card-body {
+            max-height: 900px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            padding: 2px 0;
+        }
+        .scada-card.collapsed .card-body { max-height: 0; padding: 0; }
+
+        .mini-strip {
+            display: none;
+            padding: 11px 16px;
+            gap: 10px 18px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .scada-card.collapsed .mini-strip { display: flex; }
+        .mini-strip .mini-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .mini-strip .mini-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 12.5px;
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+        .mini-strip .mini-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-light);
+            opacity: 0.4;
+            flex-shrink: 0;
+        }
+        .mini-strip .gauge.mini { width: 18px; height: 18px; }
+        .mini-strip .gauge.mini i { font-size: 8px; }
+        .mini-strip .pill-flow.mini { gap: 3px; padding: 3px 6px; }
+        .mini-strip .pill-flow.mini .dot { width: 3px; height: 3px; }
+
+        .card-row {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            min-height: 44px;
+            color: var(--text-main);
+        }
+
+        .card-row:last-child { border-bottom: none; }
+
+        .card-row:nth-child(even) { background: var(--bg-nav); }
+
+        .row-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+            margin-right: 12px;
+        }
+
+        .row-label {
+            font-weight: 500;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 12.5px;
+        }
+
+        .row-ts {
+            font-size: 10px;
+            color: var(--text-light);
+            margin-top: 2px;
+            font-weight: 400;
+            font-family: 'DM Mono', monospace;
+            display: none;
+        }
+
+        .scada-card:hover .row-ts,
+        .popup-scada:hover .row-ts { display: block; }
+
+        .hist-link {
+            display: none;
+            font-size: 10px;
+            color: var(--text-light);
+            margin-left: 6px;
+            cursor: pointer;
+            transition: color .2s;
+        }
+        .hist-link:hover { color: var(--accent); }
+        .scada-card:hover .hist-link,
+        .popup-scada:hover .hist-link { display: inline-block; }
+
+        .row-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .value-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .val-box {
+            font-weight: 500;
+            color: var(--text-main);
+            font-family: 'DM Mono', monospace;
+            font-size: 14px;
+            text-align: right;
+            border: none;
+            padding: 0;
+            line-height: 1.2;
+            background: transparent;
+            letter-spacing: -0.3px;
+        }
+
+        .unit-text {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-left: 3px;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .unit-limit-hint {
+            font-size: 9px;
+            font-weight: 500;
+            color: var(--text-light);
+            opacity: .6;
+        }
+
+        .visual-slot {
+            width: 34px;
+            height: 34px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        /* ===================== ICONES E ANIMACOES (instrumento, neutro ISA-101) ===================== */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
+        }
+
+        @keyframes pop {
+            0%, 100% { opacity: .3; transform: scale(.7); }
+            50%       { opacity: 1; transform: scale(1.1); }
+        }
+
+        @keyframes gaugeSpin {
+            0%   { stroke-dashoffset: 88; }
+            100% { stroke-dashoffset: 0; }
+        }
+
+        .fa-signal, .fa-thermometer-half, .fa-bolt {
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+
+        /* Gauge circular (nivel, %, bomba) - cinza no estado normal, cor so quando ativo/alarme */
+        .gauge {
+            position: relative;
+            width: 34px; height: 34px;
+            flex-shrink: 0;
+        }
+        .gauge svg { transform: rotate(-90deg); }
+        .gauge circle { fill: none; stroke-width: 4; }
+        .gauge .bg { stroke: var(--border-color); }
+        .gauge .fg {
+            stroke: var(--text-muted);
+            stroke-linecap: round;
+            stroke-dasharray: 88;
+            stroke-dashoffset: 88;
+            transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+        }
+        .gauge.spin .fg { stroke: var(--accent); animation: gaugeSpin 1.4s linear infinite; }
+        .gauge.warn .fg { stroke: #d9822b; }
+        .gauge.critical .fg { stroke: #e5484d; animation: pulse 1s ease-in-out infinite; }
+        .gauge i {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .gauge.spin i { color: var(--accent); }
+        .gauge.off i { color: var(--text-light); }
+
+        /* Pill de vazao / rpm (pontinhos) - cinza parado, cor so quando fluindo */
+        .pill-flow {
+            display: flex; align-items: center; gap: 5px;
+            background: var(--bg-nav);
+            padding: 5px 9px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .pill-flow .dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--text-light);
+            opacity: .5;
+        }
+        .pill-flow.active .dot { animation: pop 1s ease-in-out infinite; opacity: 1; background: var(--accent); }
+        .pill-flow.active .dot:nth-child(2) { animation-delay: .15s; }
+        .pill-flow.active .dot:nth-child(3) { animation-delay: .3s; }
+        .pill-flow i { color: var(--text-light); transition: color .3s; }
+        .pill-flow.active i { color: var(--accent); }
+
+        .flow-icon { color: var(--text-light); transition: color .3s; }
+        .flow-icon.active {
+            color: var(--accent);
+            animation: waterWave 1.4s ease-in-out infinite;
+        }
+        @keyframes waterWave {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-3px); }
+        }
+
+        .pressao-icon { color: var(--text-light); transition: color .3s; }
+        .pressao-icon.active { color: var(--accent); }
+        .pressao-icon.warn { color: #d9822b !important; }
+        .pressao-icon.critical { color: #e5484d !important; animation: pulse 1s ease-in-out infinite; }
+
+        .signal-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 15px; width: 20px;
+        }
+
+        .signal-bar {
+            width: 3px;
+            background: var(--border-color);
+            border-radius: 1px;
+            transition: background 0.3s;
+        }
+
+        .signal-bar:nth-child(1) { height: 30%; }
+        .signal-bar:nth-child(2) { height: 50%; }
+        .signal-bar:nth-child(3) { height: 70%; }
+        .signal-bar:nth-child(4) { height: 90%; }
+
+        .sig-excel .signal-bar { background: var(--accent) !important; }
+
+        .status-on {
+            color: var(--accent-dark) !important;
+            font-weight: 600;
+        }
+
+        .status-off {
+            color: var(--text-muted) !important;
+            font-weight: 500;
+        }
+
+        /* ===================== ALARM ICON STATES ===================== */
+        .alarm-critical {
+            color: var(--accent) !important;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            15%  { transform: rotate(-18deg); }
+            30%  { transform: rotate(16deg); }
+            45%  { transform: rotate(-12deg); }
+            60%  { transform: rotate(10deg); }
+            75%  { transform: rotate(-6deg); }
+            90%  { transform: rotate(4deg); }
+        }
+
+        .shaking {
+            animation: shake 0.55s ease-in-out;
+            transform-origin: center;
+        }
+
+        /* ===================== TOGGLE SWITCH ===================== */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px; height: 22px;
+            margin: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0; height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--border-color);
+            border: 1px solid var(--border-color);
+            transition: 0.3s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background: var(--text-muted);
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        input:checked + .slider {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        input:checked + .slider:before {
+            background: white;
+            left: calc(100% - 17px);
+        }
+
+        .switch-loading {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: wait;
+        }
+
+        /* ===================== MAP ===================== */
+        #mapa_full {
+            width: 100%; height: 100%;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            color: var(--text-main);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .leaflet-popup-tip { background: var(--bg-card); }
+
+        .leaflet-popup-content {
+            margin: 0 !important;
+            width: 380px !important;
+        }
+
+        .popup-scada {
+            width: 100%;
+            min-width: 380px;
+        }
+
+        .leaflet-container a.leaflet-popup-close-button {
+            color: white !important;
+            font-size: 15px !important;
+            font-weight: bold !important;
+            top: 8px !important;
+            right: 8px !important;
+            background: rgba(0,0,0,0.25);
+            border-radius: 50%;
+            width: 22px; height: 22px;
+            line-height: 22px !important;
             text-align: center;
-            max-width: 420px;
+            transition: background 0.2s;
         }
-        .card img { max-width: 220px; margin-bottom: 20px; }
-        .card h1 { font-size: 18px; color: #1a252f; margin: 0 0 8px; }
-        .card p { font-size: 13.5px; color: #7a8a99; margin: 0; }
-        .accent { color: {{COR_TEMA}}; font-weight: 700; }
+
+        .leaflet-container a.leaflet-popup-close-button:hover {
+            background: var(--accent) !important;
+        }
+
+        .custom-logger-icon {
+            background: var(--bg-card);
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+        }
+
+        .custom-logger-icon i {
+            color: var(--primary);
+            font-size: 15px;
+        }
+
+        /* ===================== HISTORY / CHART ===================== */
+        .pro-chart-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: var(--shadow);
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 8px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: flex-end;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .history-controls.collapsed { display: none; }
+
+        #mobile-filter-header {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--bg-nav);
+            border-bottom: 1px solid var(--border-color);
+            margin: -20px -20px 15px -20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 13px;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Form controls */
+        .pro-input {
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            width: 145px;
+            cursor: pointer;
+            background: var(--bg-card) !important;
+            color: var(--text-main);
+            font-family: 'DM Mono', monospace;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .pro-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(44,62,80,0.12);
+        }
+
+        /* Buttons */
+        .generate-button, .export-button, .reset-zoom-button, .zoom-mode-btn {
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+            border: none !important;
+            color: white !important;
+            height: 36px;
+            padding: 0 14px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'DM Sans', sans-serif;
+            white-space: nowrap;
+        }
+
+        .generate-button {
+            background: var(--primary) !important;
+            box-shadow: 0 2px 6px rgba(44,62,80,0.2);
+        }
+
+        .generate-button:hover {
+            background: var(--primary-dark) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(44,62,80,0.3);
+        }
+
+        .export-button {
+            background: var(--text-muted) !important;
+        }
+
+        .export-button:hover {
+            background: var(--text-main) !important;
+            transform: translateY(-1px);
+        }
+
+        .reset-zoom-button {
+            background: var(--text-light) !important;
+        }
+
+        .reset-zoom-button:hover {
+            background: var(--text-muted) !important;
+        }
+
+        .generate-button:disabled, .export-button:disabled {
+            background: var(--border-color) !important;
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .zoom-mode-btn {
+            background: var(--bg-nav) !important;
+            color: var(--text-muted) !important;
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .zoom-mode-btn:hover {
+            background: var(--border-color) !important;
+            color: var(--text-main) !important;
+        }
+
+        .zoom-mode-btn.active {
+            background: var(--accent) !important;
+            color: white !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 2px 8px rgba(211,47,47,0.3);
+        }
+
+        .vertical-divider {
+            width: 1px;
+            height: 36px;
+            background: var(--border-color);
+            margin: 0 4px;
+        }
+
+        .zoom-group {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-nav);
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+        }
+
+        /* Multiselect */
+        .custom-multiselect {
+            position: relative;
+            width: 240px;
+        }
+
+        .custom-multiselect-trigger {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            cursor: pointer;
+            background: var(--bg-card) !important;
+            text-align: left;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: border-color 0.15s;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .custom-multiselect-trigger:hover {
+            border-color: var(--primary);
+        }
+
+        .custom-multiselect-panel {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            max-height: 360px;
+            overflow-y: auto;
+            margin-top: 4px;
+        }
+
+        .opt-group-header {
+            padding: 7px 12px;
+            background: var(--bg-nav);
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            border-bottom: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .opt-group-header:first-child { border-top: none; }
+
+        .opt-group-item {
+            display: block;
+            padding: 8px 12px 8px 24px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-muted);
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .opt-group-item:hover {
+            background: var(--bg-nav);
+            color: var(--text-main);
+        }
+
+        .opt-group-item input {
+            margin-right: 8px;
+            accent-color: var(--accent);
+        }
+
+        /* ===================== TABLES ===================== */
+        .io-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+
+        .io-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .io-table th {
+            padding: 10px 14px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            background: var(--primary);
+            color: white;
+            border-bottom: 2px solid var(--primary-dark);
+            white-space: nowrap;
+        }
+
+        .io-table td {
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+            vertical-align: middle;
+            background: var(--bg-card);
+            white-space: nowrap;
+        }
+
+        .io-table tr:nth-child(even) td {
+            background: var(--bg-nav);
+        }
+
+        .io-table tbody tr:hover td {
+            background: var(--border-color);
+            transition: background 0.15s;
+        }
+
+        .dark-mode .io-table tbody tr:hover td {
+            background: var(--primary-dark);
+        }
+
+        .loading-more {
+            text-align: center;
+            padding: 12px;
+            color: var(--text-light);
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        /* History table */
+        #history-table-wrapper {
+            display: none;
+            margin-top: 14px;
+            border-top: 1px solid var(--border-color);
+            height: 280px;
+            flex-shrink: 0;
+            overflow: auto;
+            background: var(--bg-nav);
+            border-radius: 0 0 var(--radius) var(--radius);
+        }
+
+        .hist-header-main {
+            text-align: center !important;
+            font-weight: bold;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .hist-col-date {
+            width: 140px;
+            border-right: 1px solid var(--border-color);
+            text-align: center;
+            font-family: 'DM Mono', monospace;
+            font-size: 11.5px;
+            color: var(--text-muted);
+        }
+
+        .hist-col-val {
+            width: 100px;
+            text-align: center;
+            font-family: 'DM Mono', monospace;
+            font-weight: 600;
+            border-right: 2px solid var(--border-color);
+        }
+
+        /* ===================== ALARMS ===================== */
+        .alarm-nuclear-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: calc(100dvh - var(--topbar-height) - var(--footer-height) - 32px);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .alarm-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+            flex-shrink: 0;
+        }
+
+        #alarm-list-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+            background: var(--bg-card);
+        }
+
+        .alm-level-1 { color: var(--text-light) !important; }
+        .alm-level-2 { color: var(--text-muted) !important; }
+        .alm-level-3 { color: var(--accent) !important; }
+        .alm-level-4 { color: var(--accent-dark) !important; }
+
+        .alm-status-active {
+            color: var(--accent);
+            font-weight: 700;
+            background: var(--alm-bg-active);
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+            border: 1px solid var(--alm-border-active);
+        }
+
+        .alm-status-rtn {
+            color: var(--primary);
+            font-weight: 600;
+            background: var(--alm-bg-rtn);
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+            border: 1px solid var(--alm-border-rtn);
+        }
+
+        /* ===================== LOADER ===================== */
+        #home-loader {
+            text-align: center;
+            padding-top: 120px;
+            color: var(--text-light);
+        }
+
+        /* ===================== MAP LOCATION BUTTON ===================== */
+        #map-location-btn {
+            position: absolute;
+            bottom: 20px; right: 20px;
+            z-index: 1000;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-size: 13px;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 3px 12px rgba(211,47,47,0.35);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+        }
+
+        #map-location-btn:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 5px 18px rgba(211,47,47,0.45);
+        }
+
+        #map-next-source-btn {
+            position: absolute;
+            bottom: 20px; right: 20px;
+            z-index: 1000;
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-size: 13px;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            /* empilha acima do botão de localização, mesmo canto */
+            transform: translateY(-52px);
+        }
+
+        #map-next-source-btn:hover {
+            background: var(--accent);
+            color: white;
+            transform: translateY(-53px);
+            box-shadow: 0 5px 18px rgba(0,0,0,0.25);
+        }
+
+        /* ===================== SCROLLBAR STYLING ===================== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-light);
+        }
+
+        /* ===================== FLATPICKR DARK MODE ===================== */
+        .dark-mode .flatpickr-calendar {
+            background: var(--bg-card);
+            border-color: var(--border-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .dark-mode .flatpickr-day {
+            color: var(--text-main);
+        }
+
+        .dark-mode .flatpickr-day.selected {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* ===================== RESPONSIVE ===================== */
+        @media (max-width: 768px) {
+            :root {
+                --topbar-height: auto;
+            }
+
+            #new-topbar {
+                height: auto;
+                flex-direction: column;
+                padding: 10px 14px;
+                gap: 10px;
+            }
+
+            .nav-menu {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .menu-item {
+                padding: 7px 14px;
+            }
+
+            .menu-item span { display: none; }
+            .menu-item i { font-size: 17px; width: auto; }
+
+            .user-area {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .user-profile {
+                flex-direction: column;
+                justify-content: center;
+                gap: 0;
+                line-height: 1;
+            }
+
+            .user-profile i {
+                font-size: 15px;
+                margin-bottom: 1px;
+            }
+
+            #user-display {
+                font-size: 9px;
+                margin: 0 !important;
+                max-width: 60px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: block;
+            }
+
+            #views-container { padding: 10px; }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+                padding: 4px 4px 16px;
+            }
+
+            #mobile-filter-header { display: flex; }
+
+            .history-controls {
+                position: absolute;
+                top: 45px; left: 0;
+                width: 100%;
+                z-index: 100;
+                background: var(--bg-card);
+                border-bottom: 1px solid var(--border-color);
+                box-shadow: var(--shadow-lg);
+                padding: 15px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .history-controls .pro-input,
+            .history-controls .custom-multiselect {
+                width: 100% !important;
+            }
+
+            .vertical-divider { display: none; }
+
+            #app-footer {
+                height: 40px;
+                padding: 0 14px;
+            }
+
+            .footer-left img { height: 22px; }
+
+            #footer-config-btn {
+                padding: 4px 12px;
+                font-size: 12px;
+            }
+
+            .alarm-nuclear-container {
+                height: calc(100dvh - 160px - var(--footer-height));
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <img src="{{LOGO_FILENAME}}" alt="{{CLIENTE_NOME}}">
-        <h1>{{CLIENTE_NOME}}</h1>
-        <p>Painel <span class="accent">em configuração</span> — os pontos de telemetria aparecem aqui assim que forem cadastrados.</p>
+
+<div id="connection-banner">
+    <i class="fas fa-wifi"></i> Sem Conexão â€” Tentando reconectar...
+</div>
+
+<div id="scada-app">
+
+    <!-- ==================== TOPBAR ==================== -->
+    <div id="new-topbar">
+        <div class="brand">
+            <a href="#" title="{{CLIENTE_NOME}}">
+                <img src="{{LOGO_FILENAME}}" alt="{{CLIENTE_NOME}}">
+            </a>
+        </div>
+
+        <div class="nav-menu">
+            <div class="menu-item active" onclick="app.navigate('home', this)">
+                <i class="fas fa-chart-pie"></i>
+                <span>Visão Geral</span>
+            </div>
+            <div class="menu-item" onclick="app.navigate('map', this)">
+                <i class="fas fa-map"></i>
+                <span>Mapa</span>
+            </div>
+            <div class="menu-item" onclick="app.navigate('history', this)">
+                <i class="fas fa-clock-rotate-left"></i>
+                <span>Histórico</span>
+            </div>
+            <div class="menu-item" onclick="app.navigate('alarms', this)">
+                <i id="sidebar-alarm-icon" class="fas fa-bell"></i>
+                <span id="alarm-badge" class="alarm-badge" style="display:none;">0</span>
+                <span>Alarmes</span>
+            </div>
+        </div>
+
+        <div class="user-area">
+            <div class="user-profile">
+                <i class="fas fa-user-circle"></i>
+                <span id="user-display">Carregando...</span>
+            </div>
+            <div class="icon-btn" onclick="app.toggleTheme()" title="Modo Escuro/Claro">
+                <i id="theme-btn" class="fas fa-moon"></i>
+            </div>
+            <div class="icon-btn" onclick="app.toggleFullscreen()" title="Tela Cheia">
+                <i id="fullscreen-btn" class="fas fa-expand"></i>
+            </div>
+            <a href="/Scada-LTS/logout.htm" class="icon-btn" title="Sair">
+                <i class="fas fa-power-off"></i>
+            </a>
+        </div>
     </div>
+
+    <!-- Hidden old elements (IDs removed to avoid duplicates) -->
+    <div id="sidebar" style="display:none;">
+        <div class="brand">
+            <a href="#">
+                <img src="{{LOGO_FILENAME}}" alt="{{CLIENTE_NOME}}" style="height:40px;">
+            </a>
+        </div>
+        <div class="menu">
+            <div class="menu-item active"><i class="fas fa-th-large"></i></div>
+            <div class="menu-item"><i class="fas fa-map-marked-alt"></i></div>
+            <div class="menu-item"><i class="fas fa-chart-area"></i></div>
+            <div class="menu-item"><i class="fas fa-exclamation-triangle"></i></div>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div id="topbar" style="display:none;">
+            <div class="page-title" id="page-title">Visão Geral</div>
+            <div class="user-info-area">
+                <div class="user-profile-wrap">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Operador</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="views-container">
+
+            <!-- HOME -->
+            <div id="view-home" class="view-section active">
+                <div id="home-loader">
+                    <i class="fas fa-circle-notch fa-spin fa-3x" style="color:var(--primary); opacity:0.5;"></i>
+                    <p style="margin-top:16px; color:var(--text-muted); font-size:13px;">Carregando dados...</p>
+                </div>
+                <div class="cards-grid" id="cards-container"></div>
+            </div>
+
+            <!-- MAP -->
+            <div id="view-map" class="view-section">
+                <div style="position:relative; width:100%; height:100%;">
+                    <div id="mapa_full" style="width:100%; height:100%;"></div>
+                    <button id="map-location-btn" onclick="mapModule.goToMyLocation()">
+                        <i class="fas fa-location-dot"></i>
+                        <span>Minha localização</span>
+                    </button>
+                    <button id="map-next-source-btn" onclick="mapModule.goToNextDataSource()" title="Ir para o próximo data source">
+                        <i class="fas fa-arrow-right"></i>
+                        <span id="map-next-source-label">Próximo data source</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- HISTORY -->
+            <div id="view-history" class="view-section">
+                <div class="pro-chart-container">
+                    <div id="mobile-filter-header" onclick="historyModule.toggleFilters()">
+                        <span><i class="fas fa-filter"></i> &nbsp;Filtros</span>
+                        <i id="filter-arrow" class="fas fa-angle-up"></i>
+                    </div>
+
+                    <div id="history-controls-panel" class="history-controls">
+                        <div>
+                            <label style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">Pontos</label><br>
+                            <div class="custom-multiselect">
+                                <button id="hist-selector-trigger" class="custom-multiselect-trigger">Selecione...</button>
+                                <div id="hist-selector-panel" class="custom-multiselect-panel"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">De</label><br>
+                            <input id="hist-start" class="pro-input">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">Até</label><br>
+                            <input id="hist-end" class="pro-input">
+                        </div>
+
+                        <button onclick="historyModule.fetchData()" class="generate-button">
+                            <i class="fas fa-search"></i> Gerar
+                        </button>
+                        <button id="hist-export-btn" onclick="historyModule.exportExcel()" class="export-button" disabled>
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+
+                        <div class="vertical-divider"></div>
+
+                        <button id="zoom-toggle-btn" class="zoom-mode-btn" onclick="historyModule.toggleZoomMode()">
+                            <i class="fas fa-search-plus"></i> Zoom
+                        </button>
+                        <button id="hist-reset-zoom" class="reset-zoom-button" style="display:none">
+                            <i class="fas fa-undo"></i> Resetar
+                        </button>
+                        <button id="table-toggle-btn" class="zoom-mode-btn" onclick="historyModule.toggleTable()">
+                            <i class="fas fa-table"></i> Tabela
+                        </button>
+                    </div>
+
+                    <div class="chart-wrapper" style="margin-top:16px;">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+
+                    <div id="history-table-wrapper">
+                        <table id="history-data-table" class="io-table">
+                            <thead id="hist-table-head"></thead>
+                            <tbody id="hist-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALARMS -->
+            <div id="view-alarms" class="view-section">
+                <div class="alarm-nuclear-container">
+                    <div class="alarm-header">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <label style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">
+                                Severidade:
+                                <select id="alm-level" class="pro-input" onchange="alarmModule.resetAndFetch()" style="width:130px; text-transform:none; margin-left:6px;">
+                                    <option value="1">Todas (Info+)</option>
+                                    <option value="2">Urgente+</option>
+                                    <option value="3" selected>Crítico+</option>
+                                    <option value="4">Risco à Vida</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="alarm-list-wrapper">
+                        <table id="alarms-table" class="io-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:50px;">#</th>
+                                    <th style="width:160px;">Data/Hora</th>
+                                    <th>Mensagem</th>
+                                    <th style="width:110px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alarms-body"></tbody>
+                        </table>
+                        <div id="alarms-loader" class="loading-more" style="display:none;">Carregando mais...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /views-container -->
+    </div><!-- /main-content -->
+
+    <!-- FOOTER -->
+    <div id="app-footer">
+        <div class="footer-left">
+            <a href="#" title="{{CLIENTE_NOME}}">
+                <img src="{{LOGO_FILENAME}}" alt="{{CLIENTE_NOME}}">
+            </a>
+        </div>
+        <div class="footer-right">
+            <div id="footer-config-btn" onclick="window.location.href='/Scada-LTS/data_sources.shtm'">
+                <i class="fas fa-cog"></i>
+                <span>Configurações</span>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /scada-app -->
+
+<script>
+// ==================== JAVASCRIPT (com correções de bugs) ====================
+const app = {
+    data: { sources: {}, points: [] },
+    intervals: { values: null, alarmList: null, alarmCheck: null },
+    connectionStatus: true,
+    wakeLockSentinel: null,
+
+    config: {
+        unitDict: {
+            'dbm': 'dBm',
+            'm3h': 'm³/h',
+            'm3':  'm³',
+            'pct': '%',
+            'bar': 'Bar',
+            'lps': 'L/s',
+            'rpm': 'RPM',
+            'v':   'V',
+            'a':   'A',
+            'kw':  'kW',
+            'c':   '°C',
+            'ph':  'pH',
+            'mca': 'mca',
+            'm3/h': 'm³/h',
+            'hz':  'Hz',
+            'kwh': 'kWh',
+            'fp':  'FP',
+            'ed':  'ed',
+            'sd':  'sd'
+        },
+        mapStart: { lat: -22.479253, lng: -48.561272, zoom: 14 },
+        nivelMaxM: 10,
+        pressaoMaxMca: 10,
+        // Faixas de alerta (% do maximo configurado acima) reservadas so pra mudanca de estado, seguindo ISA-101
+        gaugeWarnPct: 80,
+        gaugeCriticalPct: 95,
+
+        mccDict: {
+            '724': 'Brasil'
+        },
+        mncDict: {
+            '724_02': 'TIM', '724_03': 'TIM', '724_04': 'TIM', '724_31': 'TIM',
+            '724_05': 'Claro', '724_38': 'Claro',
+            '724_06': 'Vivo', '724_10': 'Vivo', '724_11': 'Vivo', '724_23': 'Vivo', '724_54': 'Vivo',
+            '724_16': 'Oi', '724_21': 'Oi'
+        }
+    },
+
+    init: async function() {
+        await this.detectUser();
+        await this.loadData();
+        this.initTheme();
+        this.renderHome();
+        this.updateAllValues();
+        mapModule.init();
+        historyModule.init(this.data.points);
+        alarmModule.init();
+
+        this.activateWakeLock();
+
+        // BUG FIX: fullscreen-btn agora existe na topbar nova
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fullscreen-btn');
+            if (!btn) return;
+            if (document.fullscreenElement) {
+                btn.classList.remove('fa-expand');
+                btn.classList.add('fa-compress');
+                btn.title = "Sair da Tela Cheia";
+            } else {
+                btn.classList.remove('fa-compress');
+                btn.classList.add('fa-expand');
+                btn.title = "Tela Cheia";
+            }
+        });
+
+        document.addEventListener("visibilitychange", async () => {
+            if (document.hidden) {
+                this.stopIntervals();
+            } else {
+                try {
+                    await this.updateAllValues();
+                    await alarmModule.checkActiveAlarms();
+                    if (document.getElementById('view-alarms').classList.contains('active')) {
+                        await alarmModule.fetchAlarms();
+                    }
+                    if (!this.wakeLockSentinel) {
+                        this.activateWakeLock();
+                    }
+                } catch(e) {
+                    console.error("Erro na retomada:", e);
+                } finally {
+                    this.startIntervals();
+                }
+            }
+        });
+
+        window.addEventListener('online',  () => this.setConnectionState(true));
+        window.addEventListener('offline', () => this.setConnectionState(false));
+
+        this.startIntervals();
+    },
+
+    activateWakeLock: async function() {
+        try {
+            if ('wakeLock' in navigator) {
+                this.wakeLockSentinel = await navigator.wakeLock.request('screen');
+                console.log("Wake Lock ativo");
+            }
+        } catch (err) {
+            console.log("Wake Lock não suportado ou bloqueado.");
+        }
+    },
+
+    setConnectionState: function(isOnline) {
+        if (this.connectionStatus === isOnline) return;
+        this.connectionStatus = isOnline;
+        const banner = document.getElementById('connection-banner');
+        if (!isOnline) {
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+            this.updateAllValues();
+        }
+    },
+
+    startIntervals: function() {
+        if (this.intervals.values) return;
+        this.intervals.values    = setInterval(() => this.updateAllValues(), 3000);
+        this.intervals.alarmList = setInterval(() => alarmModule.autoRefresh(), 3000);
+        this.intervals.alarmCheck = setInterval(() => alarmModule.checkActiveAlarms(), 10000);
+        alarmModule.checkActiveAlarms();
+    },
+
+    stopIntervals: function() {
+        if (this.intervals.values)     clearInterval(this.intervals.values);
+        if (this.intervals.alarmList)  clearInterval(this.intervals.alarmList);
+        if (this.intervals.alarmCheck) clearInterval(this.intervals.alarmCheck);
+        this.intervals.values = null;
+        this.intervals.alarmList = null;
+        this.intervals.alarmCheck = null;
+    },
+
+    initTheme: function() {
+        const savedTheme = localStorage.getItem('io-theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('theme-btn').classList.replace('fa-moon', 'fa-sun');
+        }
+    },
+
+    toggleTheme: function() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        const btn = document.getElementById('theme-btn');
+        if (isDark) {
+            btn.classList.replace('fa-moon', 'fa-sun');
+            localStorage.setItem('io-theme', 'dark');
+        } else {
+            btn.classList.replace('fa-sun', 'fa-moon');
+            localStorage.setItem('io-theme', 'light');
+        }
+        if (historyModule.chart) historyModule.updateChartTheme();
+    },
+
+    toggleFullscreen: function() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(e => console.log(e));
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    },
+
+    actions: {
+        setPoint: async function(event, id, xid) {
+            const toggle = event.target;
+            const intendedState = toggle.checked;
+            event.preventDefault();
+
+            const wrapper = toggle.closest('.switch');
+            if (wrapper) wrapper.classList.add('switch-loading');
+
+            const val  = intendedState ? '1' : '0';
+            const ssid = Math.floor(Math.random() * 1000000) + "X";
+
+            const dwrPayload =
+                "callCount=1\n" +
+                "page=/Scada-LTS/watch_list.shtm\n" +
+                "httpSessionId=\n" +
+                "scriptSessionId=" + ssid + "\n" +
+                "c0-scriptName=WatchListDwr\n" +
+                "c0-methodName=setPoint\n" +
+                "c0-id=0\n" +
+                "c0-param0=number:" + id + "\n" +
+                "c0-param1=string:" + id + "\n" +
+                "c0-param2=string:" + val + "\n" +
+                "batchId=0";
+
+            try {
+                const res = await fetch('/Scada-LTS/dwr/call/plaincall/WatchListDwr.setPoint.dwr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: dwrPayload
+                });
+
+                if (wrapper) wrapper.classList.remove('switch-loading');
+
+                if (res.redirected || res.url.includes('login.htm')) {
+                    console.warn("Sessão expirada. Recarregando...");
+                    window.location.reload();
+                    return;
+                }
+
+                if (res.ok) {
+                    toggle.checked = intendedState;
+                    setTimeout(() => app.updateAllValues(), 500);
+                } else {
+                    console.error("Erro no servidor ao enviar comando.");
+                }
+            } catch (e) {
+                console.error("Erro de rede ao enviar comando:", e);
+                if (wrapper) wrapper.classList.remove('switch-loading');
+            }
+        },
+
+        // Level 1 -> Level 2: pula da Home direto pro Historico ja com o ponto selecionado e o grafico gerado
+        viewHistory: function(event, pointId) {
+            if (event) event.stopPropagation();
+            const navEl = document.querySelector('.menu-item[onclick*="history"]');
+            app.navigate('history', navEl);
+
+            const panel = document.getElementById('hist-selector-panel');
+            const trigger = document.getElementById('hist-selector-trigger');
+            if (!panel || !trigger) return;
+
+            panel.querySelectorAll('.hist-check').forEach(cb => { cb.checked = (String(cb.value) === String(pointId)); });
+            const count = panel.querySelectorAll('input:checked').length;
+            trigger.innerText = count === 0 ? "Selecione..." : (count === 1 ? "1 ponto" : `${count} pontos`);
+
+            setTimeout(() => historyModule.fetchData(), 150);
+        }
+    },
+
+    detectUser: async function() {
+        let user  = "Operador";
+        let found = false;
+        try { const el = document.querySelector('.userName'); if (el) { user = el.innerText.trim(); found = true; } } catch(e) {}
+        if (!found) { try { const el = window.parent.document.querySelector('.userName'); if (el) { user = el.innerText.trim(); found = true; } } catch(e) {} }
+        if (!found) {
+            try {
+                const response = await fetch('/Scada-LTS/data_sources.shtm');
+                const text = await response.text();
+                const match = text.match(/class=["']userName["']>(.*?)<\/span>/i);
+                if (match && match[1]) user = match[1].trim();
+            } catch(e) {}
+        }
+        document.getElementById('user-display').innerText = app.utils.escapeHtml(user);
+
+        const allowedUsers = ['admin'];
+        if (allowedUsers.includes(user.toLowerCase())) {
+            document.getElementById('footer-config-btn').style.display = 'flex';
+        }
+        if (window.location.href.indexOf('edit_view') === -1) {
+            document.body.classList.add('runtime-mode');
+        }
+    },
+
+    openConfig: function() { window.location.href = '/Scada-LTS/data_sources.shtm'; },
+
+    loadData: async function() {
+        try {
+            const dpRes = await fetch('/Scada-LTS/api/datapoint/getAll');
+
+            if (dpRes.url.includes('login.htm'))                          { window.location.reload(); return; }
+            if (dpRes.status === 401 || dpRes.status === 403) { window.location.href = '/Scada-LTS/login.htm'; return; }
+
+            let dataPoints;
+            try {
+                const text = await dpRes.text();
+                dataPoints = JSON.parse(text);
+            } catch (err) { window.location.reload(); return; }
+
+            // Descobre quais Data Sources estao habilitados (nao so os pontos).
+            // A pagina admin data_sources.shtm renderiza o status server-side
+            // (img database_go.png = habilitado / database_stop.png = desabilitado);
+            // nao existe endpoint REST para isso, entao fazemos parse do HTML.
+            let enabledSourceNames = null;
+            try {
+                const dsRes = await fetch('/Scada-LTS/data_sources.shtm');
+                const dsHtml = await dsRes.text();
+                const statusById = {};
+                for (const m of dsHtml.matchAll(/id="dsImg(\d+)"\s+src="images\/database_(go|stop)\.png"/g)) {
+                    statusById[m[1]] = m[2] === 'go';
+                }
+                enabledSourceNames = new Set();
+                for (const m of dsHtml.matchAll(/id="dataSourceRow(\d+)">\s*<td><b>([^<]+)<\/b>/g)) {
+                    if (statusById[m[1]] !== false) enabledSourceNames.add(m[2]);
+                }
+            } catch (err) {
+                console.warn('Nao foi possivel checar status dos data sources, filtro desativado', err);
+            }
+
+            this.data.points = dataPoints;
+            const validSources = {};
+            const dsPromises  = [];
+
+            for (let dp of dataPoints) {
+                if (!dp.enabled) continue;
+                const p = fetch(`/Scada-LTS/api/datapoint?id=${dp.id}`)
+                    .then(r => r.json())
+                    .then(details => {
+                        const dsName = details.dataSourceName;
+                        const dsXid  = details.dataSourceXid;
+                        if (enabledSourceNames && !enabledSourceNames.has(dsName)) return;
+                        if (!validSources[dsName]) {
+                            const loc = this.utils.parseLocation(dsXid);
+                            validSources[dsName] = { name: dsName, xid: dsXid, lat: loc ? loc.lat : null, lng: loc ? loc.lng : null, points: [] };
+                        }
+                        validSources[dsName].points.push({
+                            name: dp.name, xid: dp.xid, id: dp.id, type: dp.dataType,
+                            unit: this.utils.parseUnit((details.textRenderer && details.textRenderer.suffix ? details.textRenderer.suffix : details.description) || ""),
+                            domId: `val-${dp.id}`, homeId: `home-val-${dp.id}`, dataSourceName: dsName
+                        });
+                    })
+                    .catch(e => console.warn(`Erro ponto ${dp.id}`, e));
+                dsPromises.push(p);
+            }
+
+            await Promise.all(dsPromises);
+
+            const sortedKeys    = Object.keys(validSources).sort();
+            const sortedSources = {};
+            sortedKeys.forEach(key => {
+                sortedSources[key] = validSources[key];
+                sortedSources[key].points.sort((a, b) => a.name.localeCompare(b.name));
+            });
+            this.data.sources = sortedSources;
+            document.getElementById('home-loader').style.display = 'none';
+
+        } catch(e) {
+            console.error("Erro fatal:", e);
+            document.getElementById('home-loader').innerHTML = '<i class="fas fa-triangle-exclamation" style="color:var(--accent); font-size:2rem;"></i><p style="margin-top:12px; color:var(--accent);">Erro ao carregar dados.</p>';
+        }
+    },
+
+    // BUG FIX: navigate() recebe 'el' em vez de depender de 'event' global
+    navigate: function(viewId, el) {
+        document.querySelectorAll('.menu-item').forEach(e => e.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('page-title').innerText = {
+            'home':    'Visão Geral',
+            'map':     'Mapa Geográfico',
+            'history': 'Histórico Avançado',
+            'alarms':  'Alarmes'
+        }[viewId] || '';
+        document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+        document.getElementById(`view-${viewId}`).classList.add('active');
+        if (viewId === 'map') setTimeout(() => { mapModule.map.invalidateSize(); }, 200);
+    },
+
+    utils: {
+        // Cor reservada so pra desviacao de estado (ISA-101): normal = sem classe, aviso >=80%, critico >=95%
+        applyGaugeState: (el, pct) => {
+            if (!el) return;
+            el.classList.remove('warn', 'critical');
+            if (pct >= app.config.gaugeCriticalPct) el.classList.add('critical');
+            else if (pct >= app.config.gaugeWarnPct) el.classList.add('warn');
+        },
+
+        escapeHtml: (text) => {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        },
+
+        parseLocation: (xid) => {
+            const m = xid && xid.match(/_(-?\d+\.?\d*)_(-?\d+\.?\d*)$/);
+            return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+        },
+
+        parseUnit: (rawUnit) => {
+            if (!rawUnit) return "";
+            const key = rawUnit.toLowerCase().trim();
+            return app.config.unitDict[key] || rawUnit.trim();
+        },
+
+        generateRowHtml: (p, idPrefix) => {
+            const unit = p.unit;
+            const nameKey = (p.name || '').toLowerCase();
+            let visualContent = '';
+
+            if (nameKey.includes('latitude') || nameKey.includes('longitude')) {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i class="fas fa-location-dot" style="font-size:17px;"></i></div></div></div>`;
+            }
+
+            if (p.type === 'BINARY' && nameKey.includes('porta')) {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i id="${idPrefix}door-${p.id}" class="fas fa-door-closed" style="font-size:17px;"></i></div></div></div>`;
+            }
+
+            if (p.type === 'BINARY' && nameKey.includes('falha')) {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i id="${idPrefix}alarm-${p.id}" class="fas fa-bell" style="font-size:17px;color:var(--text-light);"></i></div></div></div>`;
+            }
+
+            if (p.type === 'BINARY' && nameKey.includes('disjuntor')) {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i id="${idPrefix}breaker-${p.id}" class="fas fa-toggle-on" style="font-size:17px;"></i></div></div></div>`;
+            }
+
+            if (unit === 'sd') {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div id="${idPrefix}switch-text-${p.id}" class="val-box">...</div></div><div class="visual-slot"><label class="switch"><input type="checkbox" id="${idPrefix}toggle-${p.id}" onclick="app.actions.setPoint(event, ${p.id}, '${p.xid}')"><span class="slider"></span></label></div></div></div>`;
+            }
+
+            if (p.type === 'BINARY') {
+                visualContent = `<div id="${idPrefix}pump-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg><i class="fas fa-fan"></i></div>`;
+            } else if (unit === 'm³/h' || unit === 'L/s') {
+                visualContent = `<i id="${idPrefix}flow-${p.id}" class="fas fa-water flow-icon" style="font-size:17px;"></i>`;
+            } else if (unit === 'RPM') {
+                visualContent = `<div id="${idPrefix}rpm-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg><i class="fas fa-gauge-high"></i></div>`;
+            } else if (unit === 'm³') {
+                visualContent = `<div id="${idPrefix}nivel-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
+            } else if (unit === 'mca') {
+                visualContent = `<i id="${idPrefix}pressao-${p.id}" class="fas fa-gauge pressao-icon" style="font-size:17px;"></i>`;
+            } else if (unit === '%') {
+                visualContent = `<div id="${idPrefix}bar-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
+            } else if (unit === 'dBm') {
+                visualContent = `<i class="fas fa-signal" style="font-size:17px;"></i>`;
+            } else if (unit === '°C' || unit === 'C') {
+                visualContent = `<i class="fas fa-thermometer-half" style="font-size:17px;"></i>`;
+            } else if (unit === 'V' || unit === 'A' || unit === 'kW' || unit === 'kWh') {
+                visualContent = `<i class="fas fa-bolt" style="font-size:17px;"></i>`;
+            } else if (unit === 'Hz') {
+                visualContent = `<i class="fas fa-wave-square" style="font-size:17px;"></i>`;
+            } else if (unit === 'pH') {
+                visualContent = `<i class="fas fa-vial" style="font-size:17px;"></i>`;
+            } else {
+                visualContent = `<i class="fas fa-circle" style="color:var(--text-light); font-size:7px;"></i>`;
+            }
+
+            const gaugeMax = unit === 'm³' ? app.config.nivelMaxM : (unit === 'mca' ? app.config.pressaoMaxMca : null);
+            const limitHint = gaugeMax !== null ? `<span class="unit-limit-hint">/${gaugeMax}</span>` : '';
+            const unitDisplay = unit && unit !== 'ed' ? `<span class="unit-text">${app.utils.escapeHtml(unit)}${limitHint}</span>` : '';
+
+            return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span>${unitDisplay}</div></div><div class="visual-slot">${visualContent}</div></div></div>`;
+        },
+
+        generateMiniVisual: (p, idPrefix) => {
+            const unit = p.unit;
+            const nameKey = (p.name || '').toLowerCase();
+            if (nameKey.includes('latitude') || nameKey.includes('longitude')) {
+                return `<i class="fas fa-location-dot" style="font-size:11px;color:var(--text-muted);"></i>`;
+            }
+            if (p.type === 'BINARY' && nameKey.includes('porta')) {
+                return `<i id="${idPrefix}mini-door-${p.id}" class="fas fa-door-closed" style="font-size:11px;color:var(--text-muted);"></i>`;
+            }
+            if (p.type === 'BINARY' && nameKey.includes('falha')) {
+                return `<i id="${idPrefix}mini-alarm-${p.id}" class="fas fa-bell" style="font-size:11px;color:var(--text-light);"></i>`;
+            }
+            if (p.type === 'BINARY' && nameKey.includes('disjuntor')) {
+                return `<i id="${idPrefix}mini-breaker-${p.id}" class="fas fa-toggle-on" style="font-size:11px;color:var(--text-muted);"></i>`;
+            }
+            if (p.type === 'BINARY') {
+                return `<div id="${idPrefix}mini-pump-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg><i class="fas fa-fan"></i></div>`;
+            } else if (unit === 'm³/h' || unit === 'L/s') {
+                return `<i id="${idPrefix}mini-flow-${p.id}" class="fas fa-water flow-icon" style="font-size:11px;"></i>`;
+            } else if (unit === 'RPM') {
+                return `<div id="${idPrefix}mini-rpm-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg><i class="fas fa-gauge-high"></i></div>`;
+            } else if (unit === 'm³') {
+                return `<div id="${idPrefix}mini-nivel-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
+            } else if (unit === 'mca') {
+                return `<i id="${idPrefix}mini-pressao-${p.id}" class="fas fa-gauge pressao-icon" style="font-size:11px;"></i>`;
+            } else if (unit === '%') {
+                return `<div id="${idPrefix}mini-bar-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
+            } else if (unit === 'dBm') {
+                return `<i class="fas fa-signal" style="font-size:11px;color:var(--text-muted);"></i>`;
+            } else if (unit === '°C' || unit === 'C') {
+                return `<i class="fas fa-thermometer-half" style="font-size:11px;color:var(--text-muted);"></i>`;
+            } else if (unit === 'V' || unit === 'A' || unit === 'kW' || unit === 'kWh') {
+                return `<i class="fas fa-bolt" style="font-size:11px;color:var(--text-muted);"></i>`;
+            } else if (unit === 'Hz') {
+                return `<i class="fas fa-wave-square" style="font-size:11px;color:var(--text-muted);"></i>`;
+            } else if (unit === 'pH') {
+                return `<i class="fas fa-vial" style="font-size:11px;color:var(--text-muted);"></i>`;
+            }
+            return `<span class="mini-dot"></span>`;
+        },
+
+        updateVisuals: (p, data, idPrefix) => {
+            const val  = data.val;
+            const ts   = data.ts;
+            const tsEl = document.getElementById(`${idPrefix}ts-${p.id}`);
+            if (tsEl && ts) tsEl.innerText = new Date(ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+            if (ts) {
+                const headerTsEl = document.getElementById(`${idPrefix}header-ts-${p.dataSourceName.replace(/\s+/g, '_')}`);
+                if (headerTsEl && ts > parseInt(headerTsEl.getAttribute('data-raw-ts') || '0')) {
+                    headerTsEl.setAttribute('data-raw-ts', ts);
+                    headerTsEl.innerText = new Date(ts).toLocaleString('pt-BR');
+                }
+            }
+
+            const nameKeyU = (p.name || '').toLowerCase();
+
+            if (p.type === 'BINARY' && nameKeyU.includes('falha')) {
+                const isAlarm = (val === 'true' || val === true || val == 1);
+                const elF = document.getElementById(`${idPrefix}val-${p.id}`);
+                if (elF) { elF.innerText = isAlarm ? 'FALHA' : 'OK'; elF.className = `val-box ${isAlarm ? 'status-off' : 'status-on'}`; }
+                [document.getElementById(`${idPrefix}alarm-${p.id}`), document.getElementById(`${idPrefix}mini-alarm-${p.id}`)].forEach(ic => {
+                    if (!ic) return;
+                    ic.style.color = isAlarm ? '#e5484d' : 'var(--text-light)';
+                    ic.classList.toggle('shaking', isAlarm);
+                });
+                return;
+            }
+
+            if (p.type === 'BINARY' && nameKeyU.includes('porta')) {
+                const isOpen = (val === 'true' || val === true || val == 1);
+                const elP = document.getElementById(`${idPrefix}val-${p.id}`);
+                if (elP) { elP.innerText = isOpen ? 'ABERTA' : 'FECHADA'; elP.className = `val-box ${isOpen ? 'status-off' : 'status-on'}`; }
+                [document.getElementById(`${idPrefix}door-${p.id}`), document.getElementById(`${idPrefix}mini-door-${p.id}`)].forEach(ic => {
+                    if (!ic) return;
+                    ic.classList.toggle('fa-door-open', isOpen);
+                    ic.classList.toggle('fa-door-closed', !isOpen);
+                    ic.style.color = isOpen ? '#e5484d' : '';
+                });
+                return;
+            }
+
+            if (p.type === 'BINARY' && nameKeyU.includes('disjuntor')) {
+                const isClosed = (val === 'true' || val === true || val == 1);
+                const elD = document.getElementById(`${idPrefix}val-${p.id}`);
+                if (elD) { elD.innerText = isClosed ? 'FECHADO' : 'ABERTO'; elD.className = `val-box ${isClosed ? 'status-on' : 'status-off'}`; }
+                [document.getElementById(`${idPrefix}breaker-${p.id}`), document.getElementById(`${idPrefix}mini-breaker-${p.id}`)].forEach(ic => {
+                    if (!ic) return;
+                    ic.classList.toggle('fa-toggle-on', isClosed);
+                    ic.classList.toggle('fa-toggle-off', !isClosed);
+                    ic.style.color = isClosed ? '' : '#e5484d';
+                });
+                return;
+            }
+
+            if (p.unit === 'sd') {
+                const state   = (val === 'true' || val === true || val == 1);
+                const toggle  = document.getElementById(`${idPrefix}toggle-${p.id}`);
+                const wrapper = toggle ? toggle.closest('.switch') : null;
+                const isLoading = wrapper && wrapper.classList.contains('switch-loading');
+                if (toggle && toggle.checked !== state && !isLoading) toggle.checked = state;
+                const textEl = document.getElementById(`${idPrefix}switch-text-${p.id}`);
+                if (textEl) { textEl.innerText = state ? 'LIGADO' : 'DESLIGADO'; textEl.className = `val-box ${state ? 'status-on' : 'status-off'}`; }
+                return;
+            }
+
+            const el = document.getElementById(`${idPrefix}val-${p.id}`);
+            if (!el) return;
+
+            if (p.type === 'BINARY') {
+                const isOn = (val == 'true' || val == 1);
+                el.innerText  = isOn ? 'LIGADO' : 'DESLIGADO';
+                el.className  = `val-box ${isOn ? 'status-on' : 'status-off'}`;
+                [document.getElementById(`${idPrefix}pump-${p.id}`), document.getElementById(`${idPrefix}mini-pump-${p.id}`)].forEach(pumpDiv => {
+                    if (!pumpDiv) return;
+                    pumpDiv.classList.toggle('spin', isOn); pumpDiv.classList.toggle('off', !isOn);
+                    const pfg = pumpDiv.querySelector('.fg'); if (pfg) pfg.style.strokeDashoffset = isOn ? '22' : '88';
+                });
+            } else if (/Pais \(SIM\)/i.test(p.name)) {
+                const mcc = String(parseInt(val));
+                el.innerText = app.config.mccDict[mcc] || `MCC ${mcc}`;
+            } else if (/Operadora \(SIM\)/i.test(p.name)) {
+                const mnc = String(parseInt(val));
+                const mcc = '724';
+                el.innerText = app.config.mncDict[`${mcc}_${mnc.padStart(2,'0')}`] || `MNC ${mnc}`;
+            } else {
+                if (!isNaN(parseFloat(val))) {
+                    const valNum = parseFloat(val);
+                    el.innerText = valNum.toFixed(p.unit === 'dBm' || p.unit === 'RPM' ? 0 : 2);
+                    if (p.unit === '%') {
+                        const pct = Math.max(0, Math.min(100, valNum));
+                        const off = 88 - (88 * pct / 100);
+                        [document.getElementById(`${idPrefix}bar-${p.id}`), document.getElementById(`${idPrefix}mini-bar-${p.id}`)].forEach(bar => {
+                            if (!bar) return;
+                            const bfg = bar.querySelector('.fg'); if (bfg) bfg.style.strokeDashoffset = off;
+                            bar.classList.toggle('off', pct <= 0);
+                            app.utils.applyGaugeState(bar, pct);
+                        });
+                    }
+                    if (p.unit === 'dBm') {
+                        const sig = document.getElementById(`${idPrefix}sig-${p.id}`);
+                        if (sig && valNum > -75) sig.classList.add('sig-excel');
+                    }
+                    if (p.unit === 'm³') {
+                        const pct = Math.max(0, Math.min(100, (valNum / app.config.nivelMaxM) * 100));
+                        const off = 88 - (88 * pct / 100);
+                        [document.getElementById(`${idPrefix}nivel-${p.id}`), document.getElementById(`${idPrefix}mini-nivel-${p.id}`)].forEach(nivelDiv => {
+                            if (!nivelDiv) return;
+                            const nfg = nivelDiv.querySelector('.fg'); if (nfg) nfg.style.strokeDashoffset = off;
+                            nivelDiv.classList.toggle('off', pct <= 0);
+                            app.utils.applyGaugeState(nivelDiv, pct);
+                        });
+                    }
+                    if (p.unit === 'mca') {
+                        const pctP = Math.max(0, Math.min(100, (valNum / app.config.pressaoMaxMca) * 100));
+                        [document.getElementById(`${idPrefix}pressao-${p.id}`), document.getElementById(`${idPrefix}mini-pressao-${p.id}`)].forEach(pIcon => {
+                            if (!pIcon) return;
+                            pIcon.classList.toggle('active', pctP > 0);
+                            app.utils.applyGaugeState(pIcon, pctP);
+                        });
+                    }
+                    if (p.unit === 'm³/h' || p.unit === 'L/s') {
+                        [document.getElementById(`${idPrefix}flow-${p.id}`), document.getElementById(`${idPrefix}mini-flow-${p.id}`)].forEach(flowDiv => {
+                            if (flowDiv) flowDiv.classList.toggle('active', valNum > 0.5);
+                        });
+                    }
+                    if (p.unit === 'RPM') {
+                        const rpmActive = valNum > 0;
+                        [document.getElementById(`${idPrefix}rpm-${p.id}`), document.getElementById(`${idPrefix}mini-rpm-${p.id}`)].forEach(rpmDiv => {
+                            if (!rpmDiv) return;
+                            rpmDiv.classList.toggle('spin', rpmActive); rpmDiv.classList.toggle('off', !rpmActive);
+                            const rfg = rpmDiv.querySelector('.fg'); if (rfg) rfg.style.strokeDashoffset = rpmActive ? '22' : '88';
+                        });
+                    }
+                } else {
+                    el.innerText = val;
+                }
+            }
+
+            const miniEl = document.getElementById(`${idPrefix}mini-val-${p.id}`);
+            if (miniEl) miniEl.innerText = el.innerText;
+        },
+
+        fetchValue: async (p, callback) => {
+            try {
+                const res = await fetch(`/Scada-LTS/api/point_value/getValue/id/${p.id}`);
+                if (res.url.includes('login.htm')) { window.location.reload(); return; }
+                if (!res.ok) throw new Error("Falha no fetch");
+                const json = await res.json();
+                callback({ val: json.value, ts: json.ts });
+                app.setConnectionState(true);
+            } catch(e) { /* falha silenciosa */ }
+        }
+    },
+
+    renderHome: function() {
+        const container = document.getElementById('cards-container');
+        container.innerHTML = '';
+        Object.values(this.data.sources).forEach(source => {
+            const rowsHtml      = source.points.map(p => this.utils.generateRowHtml(p, 'home-')).join('');
+            const safeSourceName = source.name.replace(/\s+/g, '_');
+            const cardId        = `home-card-${safeSourceName}`;
+            const miniItemsHtml = source.points
+                .filter(p => p.unit !== 'sd')
+                .map(p => `<span class="mini-item">${app.utils.generateMiniVisual(p, 'home-')}<span id="home-mini-val-${p.id}" class="mini-val">--</span></span>`)
+                .join('');
+            const card = document.createElement('div');
+            card.className = 'scada-card';
+            card.id = cardId;
+            card.innerHTML = `<div class="card-header" onclick="app.toggleCard('${cardId}')"><span><i class="fas fa-building"></i>${app.utils.escapeHtml(source.name)}</span><div style="display:flex;align-items:center;gap:10px;"><span id="home-header-ts-${safeSourceName}" class="header-time" data-raw-ts="0">--/--/-- --:--:--</span><div class="card-min-btn"><i class="fas fa-chevron-down"></i></div></div></div><div class="card-body">${rowsHtml}</div><div class="mini-strip">${miniItemsHtml}</div>`;
+            container.appendChild(card);
+        });
+    },
+
+    toggleCard: function(cardId) {
+        const card = document.getElementById(cardId);
+        if (card) card.classList.toggle('collapsed');
+    },
+
+    updateAllValues: function() {
+        Object.values(this.data.sources).forEach(source => {
+            source.points.forEach(p => {
+                this.utils.fetchValue(p, (data) => {
+                    this.utils.updateVisuals(p, data, 'home-');
+                    this.utils.updateVisuals(p, data, 'map-');
+                });
+            });
+        });
+    }
+};
+
+const alarmModule = {
+    currentLimit: 20,
+    isLoading:    false,
+    lastShakeTime: 0,
+
+    init: function() {
+        this._setFavicon('normal');
+        const container = document.getElementById('alarm-list-wrapper');
+        if (container) {
+            container.addEventListener('scroll', () => {
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) this.loadMore();
+            });
+        }
+        this.fetchAlarms();
+    },
+
+    _setFavicon: function(state) {
+        const link = document.getElementById('dynamic-favicon');
+        if (!link) return;
+        if (state === 'alarm') {
+            // Gera favicon vermelho com ! para alarme
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            ctx.beginPath();
+            ctx.arc(16, 16, 15, 0, Math.PI * 2);
+            ctx.fillStyle = '#d32f2f';
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('!', 16, 17);
+            link.href = canvas.toDataURL('image/png');
+        } else {
+            link.href = '{{LOGO_FILENAME}}';
+        }
+    },
+
+    resetAndFetch: function() {
+        this.currentLimit = 20;
+        document.getElementById('alarms-body').innerHTML = '';
+        this.fetchAlarms();
+    },
+
+    loadMore: function() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        document.getElementById('alarms-loader').style.display = 'block';
+        this.currentLimit += 20;
+        this.fetchAlarms().then(() => {
+            this.isLoading = false;
+            document.getElementById('alarms-loader').style.display = 'none';
+        });
+    },
+
+    autoRefresh: function() {
+        if (document.getElementById('view-alarms').classList.contains('active')) this.fetchAlarms();
+    },
+
+    checkActiveAlarms: async function() {
+        try {
+            const payload = { alarmLevel: 3, eventSourceType: 0, status: "*", keywords: "", datapoint: null, limit: 20, offset: 0, sortBy: [], sortDesc: [], startDate: "", endDate: "", startTime: "00:00", endTime: "23:59" };
+            const res = await fetch('/Scada-LTS/api/events/search', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
+            if (res.url.includes('login.htm')) return;
+
+            const data = await res.json();
+            const activeCount = data.rows ? data.rows.filter(r => r.rtnTs === 0).length : 0;
+            const hasActive = activeCount > 0;
+            const icon  = document.getElementById('sidebar-alarm-icon');
+            const badge = document.getElementById('alarm-badge');
+            const now   = Date.now();
+            const isNewAlarm = !icon.classList.contains('alarm-critical');
+
+            if (badge) {
+                if (activeCount > 0) {
+                    badge.style.display = 'block';
+                    badge.innerText = activeCount > 20 ? '20+' : String(activeCount);
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+
+            if (hasActive) {
+                icon.classList.add('alarm-critical');
+                if (isNewAlarm || (now - this.lastShakeTime > 60000)) {
+                    icon.classList.remove('shaking');
+                    void icon.offsetWidth; // force reflow
+                    icon.classList.add('shaking');
+                    this.lastShakeTime = now;
+                }
+                // Título e favicon de alarme ativo
+                document.title = 'ðŸ”´ ALARME | ARÍETE';
+                alarmModule._setFavicon('alarm');
+            } else {
+                icon.classList.remove('alarm-critical', 'shaking');
+                document.title = 'ARÍETE';
+                alarmModule._setFavicon('normal');
+            }
+        } catch(e) { console.error("Erro check alarmes", e); }
+    },
+
+    fetchAlarms: async function() {
+        try {
+            const level   = document.getElementById('alm-level').value;
+            const payload = { alarmLevel: parseInt(level), eventSourceType: 0, status: "*", keywords: "", datapoint: null, limit: this.currentLimit, offset: 0, sortBy: [], sortDesc: [], startDate: "", endDate: "", startTime: "00:00", endTime: "23:59" };
+            const res = await fetch('/Scada-LTS/api/events/search', { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' } });
+            if (res.url.includes('login.htm')) { window.location.reload(); return; }
+
+            const data = await res.json();
+            if (data.rows && data.rows.length > 0) {
+                data.rows.sort((a, b) => {
+                    const aActive = (a.rtnTs === 0);
+                    const bActive = (b.rtnTs === 0);
+                    if (aActive && !bActive) return -1;
+                    if (!aActive && bActive) return 1;
+                    return b.activeTs - a.activeTs;
+                });
+            }
+            this.render(data.rows);
+        } catch(e) { console.error(e); }
+    },
+
+    render: function(rows) {
+        const tbody = document.getElementById('alarms-body');
+        if (!rows || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-light);">Nenhum evento registrado.</td></tr>';
+            return;
+        }
+        let html = '';
+        rows.forEach(row => {
+            let icon = '<i class="fas fa-flag"></i>';
+            if (row.alarmLevel === 2) icon = '<i class="fas fa-exclamation-triangle"></i>';
+            if (row.alarmLevel === 3) icon = '<i class="fas fa-exclamation-circle"></i>';
+            if (row.alarmLevel === 4) icon = '<i class="fas fa-radiation"></i>';
+            const date       = new Date(row.activeTs).toLocaleString('pt-BR');
+            const isActive   = (row.rtnTs === 0);
+            const statusHtml = isActive
+                ? '<span class="alm-status-active">ATIVO</span>'
+                : '<span class="alm-status-rtn">NORMAL</span>';
+            html += `<tr><td style="text-align:center;">${icon}</td><td>${date}</td><td>${app.utils.escapeHtml(row.message)}</td><td style="text-align:center;">${statusHtml}</td></tr>`;
+        });
+        tbody.innerHTML = html;
+        const container = document.getElementById('alarm-list-wrapper');
+        if (container && container.scrollHeight <= container.clientHeight && rows.length >= this.currentLimit) {
+            this.loadMore();
+        }
+    }
+};
+
+const mapModule = {
+    map: null,
+    userMarker: null,
+    sourceMarkers: [],
+    currentSourceIndex: -1,
+
+    init: function() {
+        const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
+        const sat    = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+        this.map = L.map('mapa_full', { center: [app.config.mapStart.lat, app.config.mapStart.lng], zoom: app.config.mapStart.zoom, layers: [sat] });
+        L.control.layers({ "Satélite": sat, "Mapa": street }).addTo(this.map);
+        const icon = L.divIcon({ className: 'custom-logger-icon', html: '<i class="fas fa-microchip"></i>', iconSize: [32,32], iconAnchor: [16,16], popupAnchor: [0,-16] });
+
+        this.sourceMarkers = [];
+        this.currentSourceIndex = -1;
+
+        Object.values(app.data.sources).forEach(src => {
+            if (!src.lat || !src.lng) return;
+            const marker       = L.marker([src.lat, src.lng], { icon }).addTo(this.map);
+            const rows         = src.points.map(p => app.utils.generateRowHtml(p, 'map-')).join('');
+            const popupContent = `<div class="popup-scada"><div class="map-card-header"><span>${app.utils.escapeHtml(src.name)}</span><span id="map-header-ts-${src.name.replace(/\s+/g, '_')}" class="header-time" data-raw-ts="0">--/--/-- --:--:--</span></div><div class="popup-body">${rows}</div></div>`;
+            marker.bindPopup(popupContent, { maxWidth: 550, minWidth: 380, autoPan: true });
+            marker.on('popupopen', () => app.updateAllValues());
+            this.sourceMarkers.push({ name: src.name, marker });
+        });
+    },
+
+    // Navega para o próximo data source cadastrado no mapa (não usa GPS).
+    // Cicla em ordem: 1º clique vai pro primeiro, próximos cliques avançam,
+    // e ao passar do último volta pro primeiro.
+    goToNextDataSource: function() {
+        if (!this.map) return;
+        if (!this.sourceMarkers.length) { alert('Nenhum data source com coordenadas cadastradas.'); return; }
+
+        this.currentSourceIndex = (this.currentSourceIndex + 1) % this.sourceMarkers.length;
+        const { name, marker } = this.sourceMarkers[this.currentSourceIndex];
+
+        this.map.setView(marker.getLatLng(), 18, { animate: true });
+        marker.openPopup();
+
+        const label = document.getElementById('map-next-source-label');
+        if (label) label.textContent = `${this.currentSourceIndex + 1}/${this.sourceMarkers.length} · ${name}`;
+    },
+
+    goToMyLocation: function() {
+        if (!this.map) return;
+        if (!navigator.geolocation) { alert('Geolocalização não suportada pelo seu navegador'); return; }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                this.map.setView([latitude, longitude], 18);
+                if (this.userMarker) this.map.removeLayer(this.userMarker);
+
+                const userIcon = L.divIcon({
+                    className: 'user-location-marker',
+                    html: '<div style="background:var(--accent);width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 2px var(--accent),0 2px 10px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [26,26], iconAnchor: [13,13]
+                });
+                this.userMarker = L.marker([latitude, longitude], { icon: userIcon }).addTo(this.map);
+
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+                    .then(r => r.json())
+                    .then(data => {
+                        let popupContent = '<b>ðŸ“ Você está aqui</b><br>';
+                        if (data.address) {
+                            const addr = data.address;
+                            if (addr.road)         popupContent += addr.road;
+                            if (addr.house_number)  popupContent += `, ${addr.house_number}`;
+                            popupContent += '<br>';
+                            if (addr.suburb)        popupContent += `${addr.suburb}<br>`;
+                            const city = addr.city || addr.town || addr.village;
+                            if (city)               popupContent += city;
+                            if (addr.state)         popupContent += ` - ${addr.state}`;
+                            popupContent += '<br>';
+                            if (addr.country)       popupContent += addr.country;
+                        } else {
+                            popupContent += `Lat: ${latitude.toFixed(6)}<br>Lon: ${longitude.toFixed(6)}`;
+                        }
+                        this.userMarker.bindPopup(popupContent).openPopup();
+                    })
+                    .catch(() => {
+                        this.userMarker.bindPopup(`<b>ðŸ“ Você está aqui</b><br>Lat: ${latitude.toFixed(6)}<br>Lon: ${longitude.toFixed(6)}`).openPopup();
+                    });
+            },
+            (error) => { alert('Erro ao obter localização: ' + error.message); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+};
+
+const historyModule = {
+    chart: null,
+    zoomEnabled: false,
+    exportDataStorage: [],
+    tableEnabled: false,
+
+    init: function(allPoints) {
+        const cfg   = { enableTime: true, dateFormat: "d/m/Y H:i:S", time_24hr: true, locale: "pt" };
+        const start = new Date(); start.setHours(0,0,0,0);
+        const end   = new Date(); end.setHours(23,59,59,999);
+        this.startPicker = flatpickr("#hist-start", { ...cfg, defaultDate: start });
+        this.endPicker   = flatpickr("#hist-end",   { ...cfg, defaultDate: end });
+
+        const trigger = document.getElementById('hist-selector-trigger');
+        const panel   = document.getElementById('hist-selector-panel');
+        const groups  = {};
+
+        allPoints.forEach(p => {
+            if (!p.enabled || (p.dataType !== 'NUMERIC' && p.dataType !== 'BINARY')) return;
+            const ds = p.datasourceName.split('__')[0].trim();
+            if (!groups[ds]) groups[ds] = [];
+            groups[ds].push(p);
+        });
+
+        let html = '';
+        Object.keys(groups).sort().forEach(ds => {
+            html += `<div class="opt-group-header">${app.utils.escapeHtml(ds)}</div>`;
+            groups[ds].sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                const pName = p.name.split('__')[0].trim();
+                html += `<label class="opt-group-item"><input type="checkbox" class="hist-check" value="${p.id}"> ${app.utils.escapeHtml(pName)}</label>`;
+            });
+        });
+        panel.innerHTML = html;
+
+        trigger.onclick = (e) => { e.stopPropagation(); panel.style.display = panel.style.display === 'block' ? 'none' : 'block'; };
+        document.addEventListener('click', (e) => { if (!e.target.closest('.custom-multiselect')) panel.style.display = 'none'; });
+        panel.onchange = () => {
+            const count = panel.querySelectorAll('input:checked').length;
+            trigger.innerText = count === 0 ? "Selecione..." : (count === 1 ? "1 ponto" : `${count} pontos`);
+        };
+
+        document.getElementById('zoom-toggle-btn').onclick   = () => this.toggleZoomMode();
+        document.getElementById('hist-reset-zoom').onclick    = () => { if (this.chart) this.chart.resetZoom(); };
+
+        const tableWrapper = document.getElementById('history-table-wrapper');
+        tableWrapper.addEventListener('scroll', () => {
+            if (this.tableEnabled && (tableWrapper.scrollTop + tableWrapper.clientHeight >= tableWrapper.scrollHeight - 50)) this.renderTableChunk();
+        });
+    },
+
+    toggleFilters: function() {
+        const panel = document.getElementById('history-controls-panel');
+        const arrow = document.getElementById('filter-arrow');
+        panel.classList.toggle('collapsed');
+        if (panel.classList.contains('collapsed')) {
+            arrow.classList.replace('fa-angle-up', 'fa-angle-down');
+        } else {
+            arrow.classList.replace('fa-angle-down', 'fa-angle-up');
+        }
+    },
+
+    toggleZoomMode: function() {
+        this.zoomEnabled = !this.zoomEnabled;
+        const btn      = document.getElementById('zoom-toggle-btn');
+        const resetBtn = document.getElementById('hist-reset-zoom');
+        if (this.zoomEnabled) {
+            btn.classList.add('active');
+            resetBtn.style.display = 'inline-flex';
+        } else {
+            btn.classList.remove('active');
+            resetBtn.style.display = 'none';
+            if (this.chart) this.chart.resetZoom();
+        }
+        if (this.chart) {
+            this.chart.options.plugins.zoom.zoom.drag.enabled  = this.zoomEnabled;
+            this.chart.options.plugins.zoom.zoom.wheel.enabled = this.zoomEnabled;
+            this.chart.update();
+        }
+    },
+
+    toggleTable: function() {
+        this.tableEnabled = !this.tableEnabled;
+        const btn     = document.getElementById('table-toggle-btn');
+        const wrapper = document.getElementById('history-table-wrapper');
+        if (this.tableEnabled) {
+            btn.classList.add('active');
+            wrapper.style.display = 'block';
+            this.renderTableInitial();
+            if (window.innerWidth <= 768) {
+                const panel = document.getElementById('history-controls-panel');
+                if (!panel.classList.contains('collapsed')) this.toggleFilters();
+            }
+        } else {
+            btn.classList.remove('active');
+            wrapper.style.display = 'none';
+        }
+    },
+
+    updateChartTheme: function() {
+        if (!this.chart) return;
+        const isDark     = document.body.classList.contains('dark-mode');
+        const gridColor  = getComputedStyle(document.body).getPropertyValue('--chart-grid').trim();
+        const textColor  = getComputedStyle(document.body).getPropertyValue('--chart-text').trim();
+
+        this.chart.options.scales.x.grid.color = (ctx) => {
+            if (ctx.tick && ctx.tick.value) {
+                const d = new Date(ctx.tick.value);
+                if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) return isDark ? '#555' : '#bdc3c7';
+            }
+            return gridColor;
+        };
+        this.chart.options.scales.x.ticks.color         = textColor;
+        this.chart.options.scales.x.title.color         = textColor;
+        this.chart.options.scales.yNum.grid.color        = gridColor;
+        this.chart.options.scales.yNum.ticks.color       = textColor;
+        this.chart.options.scales.yNum.title.color       = textColor;
+        this.chart.options.scales.yBin.grid.color        = gridColor;
+        this.chart.options.scales.yBin.ticks.color       = textColor;
+        this.chart.options.scales.yBin.title.color       = textColor;
+        this.chart.options.plugins.legend.labels.color   = textColor;
+        this.chart.update();
+    },
+
+    fetchData: async function() {
+        const checkboxes = document.querySelectorAll('.hist-check:checked');
+        if (checkboxes.length === 0) return alert("Selecione pelo menos um ponto.");
+        const ids       = Array.from(checkboxes).map(c => c.value);
+        const parseDate = s => { const [d,t] = s.split(' '); const [D,M,Y] = d.split('/'); return new Date(`${Y}-${M}-${D}T${t}`); };
+        const t1        = parseDate(this.startPicker.input.value).getTime();
+        const t2        = parseDate(this.endPicker.input.value).getTime();
+
+        try {
+            const url  = `/Scada-LTS/api/amcharts/by-id?startTs=${t1}&endTs=${t2}&ids=${ids.join(',')}&configFromSystem=false&enabled=false&valuesLimit=10000&limitFactor=1`;
+            const res  = await fetch(url);
+            const data = await res.json();
+
+            this.exportDataStorage = [];
+            const datasets       = [];
+            const palette        = ['#d32f2f','#2c3e50','#5d6d7e','#8a9aa8','#b0c4d9','#e6f0fa'];
+            const processedData  = {};
+            ids.forEach(id => processedData[id] = []);
+
+            data.forEach(row => {
+                const ts = row.date;
+                ids.forEach(id => { if (row[id] !== undefined) processedData[id].push({ x: ts, y: row[id] }); });
+            });
+
+            ids.forEach((id, index) => {
+                const point  = app.data.points.find(p => p.id == id);
+                if (!point) return;
+                const values = processedData[id];
+                if (values.length > 0) {
+                    const cleanName = point.name.split('__')[0].trim();
+                    let dsName = point.datasourceName || point.dataSourceName || "";
+                    dsName = dsName.split('__')[0].trim();
+                    const fullName = dsName ? `${dsName}: ${cleanName}` : cleanName;
+                    const isBin    = point.dataType === 'BINARY';
+                    const plotData = isBin ? values.map(v => ({ x: v.x, y: (v.y == true || v.y == 'true' || v.y == 1) ? 1 : 0 })) : values;
+
+                    this.exportDataStorage.push({ name: fullName, data: values.map(v => ({ ts: v.x, value: v.y })), type: point.dataType });
+                    datasets.push({ label: fullName, data: plotData, borderColor: palette[index % palette.length], backgroundColor: palette[index % palette.length], borderWidth: 2, pointRadius: 0, pointHitRadius: 10, stepped: isBin ? 'after' : false, yAxisID: isBin ? 'yBin' : 'yNum' });
+                }
+            });
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            if (this.chart) this.chart.destroy();
+            this.chart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { tooltipFormat: 'dd/MM/yyyy HH:mm:ss', displayFormats: { hour: 'HH:mm', minute: 'HH:mm', second: 'HH:mm:ss' } },
+                            title: { display: true, text: 'Hora (24h)' },
+                            grid: {
+                                color: context => {
+                                    if (context.tick && context.tick.value) {
+                                        const d = new Date(context.tick.value);
+                                        if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) return '#bdc3c7';
+                                    }
+                                    return 'rgba(0,0,0,0.05)';
+                                },
+                                lineWidth: context => {
+                                    if (context.tick && context.tick.value) {
+                                        const d = new Date(context.tick.value);
+                                        if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) return 2;
+                                    }
+                                    return 1;
+                                },
+                                borderDash: context => {
+                                    if (context.tick && context.tick.value) {
+                                        const d = new Date(context.tick.value);
+                                        if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) return [5,5];
+                                    }
+                                    return [];
+                                }
+                            }
+                        },
+                        yNum: { type: 'linear', position: 'left',  title: { display: true, text: 'Valor' } },
+                        yBin: { type: 'linear', position: 'right', title: { display: true, text: 'Status' }, min: -0.1, max: 1.1, ticks: { stepSize: 1, callback: v => (v==1?'ON':(v==0?'OFF':null)) }, grid: { drawOnChartArea: false } }
+                    },
+                    plugins: {
+                        zoom: { pan: { enabled: this.zoomEnabled, mode: 'x' }, zoom: { wheel: { enabled: this.zoomEnabled }, drag: { enabled: this.zoomEnabled }, mode: 'x' } },
+                        legend: { labels: { usePointStyle: true, boxWidth: 8 } }
+                    }
+                }
+            });
+
+            this.updateChartTheme();
+            document.getElementById('hist-export-btn').disabled = false;
+            if (this.tableEnabled) this.renderTableInitial();
+            if (window.innerWidth <= 768) {
+                const panel = document.getElementById('history-controls-panel');
+                if (!panel.classList.contains('collapsed')) this.toggleFilters();
+            }
+
+        } catch(e) { console.error(e); alert("Erro ao buscar dados."); }
+    },
+
+    renderTableInitial: function() {
+        this.tableLimit = 50;
+        this.tableData  = JSON.parse(JSON.stringify(this.exportDataStorage));
+        this.tableData.forEach(series => series.data.reverse());
+        const thead = document.getElementById('hist-table-head');
+        const tbody = document.getElementById('hist-table-body');
+        thead.innerHTML = ''; tbody.innerHTML = '';
+        if (this.tableData.length === 0) return;
+        let row1 = '<tr>', row2 = '<tr>';
+        this.tableData.forEach(series => {
+            row1 += `<th colspan="2" class="hist-header-main">${app.utils.escapeHtml(series.name)}</th>`;
+            row2 += `<th class="hist-col-date">Data</th><th class="hist-col-val">Valor</th>`;
+        });
+        thead.innerHTML = row1 + '</tr>' + row2 + '</tr>';
+        this.renderTableChunk();
+    },
+
+    renderTableChunk: function() {
+        const tbody = document.getElementById('hist-table-body');
+        if (this.tableData.length === 0) return;
+        const currentRows = tbody.rows.length;
+        const maxDataLen  = Math.max(...this.tableData.map(s => s.data.length));
+        if (currentRows >= maxDataLen) return;
+        const limit = Math.min(currentRows + 50, maxDataLen);
+        let chunkHtml = '';
+        for (let i = currentRows; i < limit; i++) {
+            chunkHtml += '<tr>';
+            this.tableData.forEach(series => {
+                const item = series.data[i];
+                if (item) {
+                    const dateStr = new Date(item.ts).toLocaleString('pt-BR');
+                    const valStr  = series.type === 'BINARY' ? (item.value == 'true' || item.value == '1' ? 'ON' : 'OFF') : parseFloat(item.value).toFixed(2);
+                    chunkHtml += `<td class="hist-col-date">${dateStr}</td><td class="hist-col-val">${valStr}</td>`;
+                } else {
+                    chunkHtml += `<td>-</td><td>-</td>`;
+                }
+            });
+            chunkHtml += '</tr>';
+        }
+        tbody.insertAdjacentHTML('beforeend', chunkHtml);
+    },
+
+    exportExcel: function() {
+        if (this.exportDataStorage.length === 0) return;
+        const wb      = XLSX.utils.book_new();
+        const data    = [];
+        const headers = [];
+        this.exportDataStorage.forEach(d => headers.push(d.name, "Data", "Valor", ""));
+        data.push(headers);
+        const maxLen = Math.max(...this.exportDataStorage.map(d => d.data.length));
+        for (let i = 0; i < maxLen; i++) {
+            const row = [];
+            this.exportDataStorage.forEach(d => {
+                const pt = d.data[i];
+                if (pt) {
+                    const val = d.type === 'BINARY' ? (pt.value == 'true' || pt.value == '1' ? 'ON' : 'OFF') : parseFloat(pt.value);
+                    row.push(d.name, new Date(pt.ts), val, "");
+                } else {
+                    row.push("", "", "", "");
+                }
+            });
+            data.push(row);
+        }
+        const ws = XLSX.utils.aoa_to_sheet(data, { cellDates: true });
+        XLSX.utils.book_append_sheet(wb, ws, "Dados");
+        XLSX.writeFile(wb, "Historico.xlsx");
+    }
+};
+
+app.init();
+</script>
+
 </body>
 </html>

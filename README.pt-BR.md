@@ -263,9 +263,22 @@ sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$CO
 sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   login.jsp > /opt/scadalts/stack/clients/$NOME/login/login.jsp
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   home.html > /opt/scadalts/stack/clients/$NOME/graphics/home.html
+
+cp -r vendor /opt/scadalts/stack/clients/$NOME/graphics/vendor
+cp $NOME-logo.png /opt/scadalts/stack/clients/$NOME/graphics/${NOME}-logo.png 2>/dev/null || true
 ```
+
+`home.html` é o **dashboard completo** (não é placeholder): barra
+superior com menu (Início/Mapa/Histórico/Alarmes), cards de telemetria
+ao vivo por Data Source, mapa Leaflet, gráfico de histórico com
+exportação Excel, e lista paginada de alarmes. Ele lê tudo direto da API
+REST do próprio SCADA-LTS (`/api/datapoint/getAll` e afins) — você não
+edita esse arquivo de novo quando os Data Sources/Points de um cliente
+mudam, ele detecta sozinho. O `vendor/` (~1.5MB: Leaflet, Chart.js,
+Flatpickr, SheetJS) precisa ser copiado junto porque o CSP abaixo
+bloqueia carregar isso de CDN — precisa vir da mesma origem.
 
 Coloca o logo real do cliente (PNG) em
 `/opt/scadalts/stack/clients/$NOME/login/$NOME-logo.png` — é o arquivo que
@@ -293,7 +306,8 @@ reavaliar o arquivo.
 |---|---|---|
 | `login.jsp` | Substitui a tela de login padrão | `WEB-INF/jsp/login.jsp` (bind mount `:ro`) |
 | `login-theme.css` | Cor do tema na tela de login | `assets/login-theme.css` (bind mount `:ro`) |
-| `home.html` | Página inicial depois do login (em vez da "lista de observação" técnica padrão) | dentro de `graphics/`, montado inteiro — o login aponta pra cá (`homeUrl: /graphics/home.html`) |
+| `home.html` | Dashboard completo depois do login (menu, telemetria, mapa, histórico, alarmes) em vez da "lista de observação" técnica padrão | dentro de `graphics/`, montado inteiro — vira o Home URL do usuário (passo 9.5) |
+| `vendor/` | Bibliotecas JS/CSS que o `home.html` precisa (Leaflet, Chart.js, Flatpickr, SheetJS) | dentro de `graphics/vendor/`, mesmo mount acima |
 | `context.xml` | Aponta o Tomcat pro banco MySQL desse cliente | `META-INF/context.xml` (bind mount `:ro`) |
 | `env.properties` | Config padrão do SCADA-LTS, sem placeholder, copiado igual pra todo cliente | `WEB-INF/classes/env.properties` (bind mount `:ro`) |
 
@@ -424,4 +438,9 @@ que caiu na home personalizada.
 
 MIT — ver [`LICENSE`](LICENSE). O próprio SCADA-LTS e qualquer componente
 de terceiro (ABS Gateway/Master, Cloudflare) mantêm suas próprias
-licenças.
+licenças. As bibliotecas em `templates/vendor/` usadas pelo `home.html`
+também mantêm suas próprias licenças permissivas:
+[Leaflet](https://github.com/Leaflet/Leaflet) (BSD-2-Clause),
+[Chart.js](https://github.com/chartjs/Chart.js) (MIT),
+[Flatpickr](https://github.com/flatpickr/flatpickr) (MIT),
+[SheetJS/xlsx](https://github.com/SheetJS/sheetjs) (Apache-2.0).
