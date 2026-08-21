@@ -293,7 +293,8 @@
                 "fn_checa_pronto"
             ],
             [
-                "dbg_exec_err"
+                "dbg_exec_err",
+                "fn_erro_boot_libera_lock"
             ],
             []
         ]
@@ -1219,6 +1220,27 @@
                 "dbg_exec_err"
             ],
             []
+        ]
+    },
+    {
+        "id": "fn_erro_boot_libera_lock",
+        "type": "function",
+        "z": "tab_novocliente",
+        "name": "timeout no boot -- libera lock e avisa",
+        "func": "global.set('op_cliente_lock', { ativo: false });\nnode.status({fill:'red', shape:'ring', text:'timeout esperando Tomcat'});\nnode.error('timeout esperando SCADA-LTS iniciar', msg);\nreturn [null, {\n    stepUpdates: [{key:'boot', state:'erro'}],\n    procDone: true,\n    procErro: 'A VM demorou demais pra responder (Tomcat pode ainda estar subindo). O container pode ter subido mesmo assim -- confira em Clientes Ativos ou aguarde e tente de novo.',\n}];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 220,
+        "wires": [
+            [],
+            [
+                "ui_template_resultado"
+            ]
         ]
     }
 ]
