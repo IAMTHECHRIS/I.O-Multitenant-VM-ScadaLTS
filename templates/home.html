@@ -5,7 +5,7 @@
     <meta name="theme-color" content="{{COR_TEMA}}">
     <link rel="apple-touch-icon" href="{{LOGO_FILENAME}}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ARÍETE</title>
+    <title>{{CLIENTE_NOME}}</title>
 
     <link id="dynamic-favicon" rel="icon" href="{{LOGO_FILENAME}}" type="image/png">
     <link rel="shortcut icon" href="{{LOGO_FILENAME}}" type="image/png">
@@ -2416,11 +2416,11 @@ const alarmModule = {
                     this.lastShakeTime = now;
                 }
                 // Título e favicon de alarme ativo
-                document.title = 'ðŸ”´ ALARME | ARÍETE';
+                document.title = '🔴 ALARME | {{CLIENTE_NOME}}';
                 alarmModule._setFavicon('alarm');
             } else {
                 icon.classList.remove('alarm-critical', 'shaking');
-                document.title = 'ARÍETE';
+                document.title = '{{CLIENTE_NOME}}';
                 alarmModule._setFavicon('normal');
             }
         } catch(e) { console.error("Erro check alarmes", e); }
@@ -2538,7 +2538,7 @@ const mapModule = {
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
                     .then(r => r.json())
                     .then(data => {
-                        let popupContent = '<b>ðŸ“ Você está aqui</b><br>';
+                        let popupContent = '<b>📍 Você está aqui</b><br>';
                         if (data.address) {
                             const addr = data.address;
                             if (addr.road)         popupContent += addr.road;
@@ -2556,7 +2556,7 @@ const mapModule = {
                         this.userMarker.bindPopup(popupContent).openPopup();
                     })
                     .catch(() => {
-                        this.userMarker.bindPopup(`<b>ðŸ“ Você está aqui</b><br>Lat: ${latitude.toFixed(6)}<br>Lon: ${longitude.toFixed(6)}`).openPopup();
+                        this.userMarker.bindPopup(`<b>📍 Você está aqui</b><br>Lat: ${latitude.toFixed(6)}<br>Lon: ${longitude.toFixed(6)}`).openPopup();
                     });
             },
             (error) => { alert('Erro ao obter localização: ' + error.message); },
