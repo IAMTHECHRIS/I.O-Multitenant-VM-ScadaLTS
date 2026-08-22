@@ -309,10 +309,18 @@ to re-evaluate the file.
 
 **9.2 — Create the database.**
 
+> **Why `IDENTIFIED WITH mysql_native_password`, not the default**:
+> MySQL 8 defaults new users to `caching_sha2_password`, but the JDBC
+> driver bundled in the SCADA-LTS image is an old version
+> (`mysql-connector-java 5.1.49`) that doesn't speak that protocol
+> correctly — result: `Access denied` even with the right password, a
+> `500 System exception!` on the login screen. Found by running the whole
+> process from scratch on a throwaway VM on 2026-08-22.
+
 ```bash
 docker exec mysql mysql -u root -p<mysql-root-password> -e \
   "CREATE DATABASE IF NOT EXISTS scadalts_$NOME;
-   CREATE USER IF NOT EXISTS 'scadalts_$NOME'@'%' IDENTIFIED BY '$DB_SENHA';
+   CREATE USER IF NOT EXISTS 'scadalts_$NOME'@'%' IDENTIFIED WITH mysql_native_password BY '$DB_SENHA';
    GRANT ALL PRIVILEGES ON scadalts_$NOME.* TO 'scadalts_$NOME'@'%';
    FLUSH PRIVILEGES;"
 ```
