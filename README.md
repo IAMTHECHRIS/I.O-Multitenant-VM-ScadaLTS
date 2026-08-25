@@ -1,4 +1,4 @@
-# SCADA-LTS Deploy Guide
+# I.O SCADA-LTS Deploy Guide
 
 *[Leia em português](README.pt-BR.md)*
 
