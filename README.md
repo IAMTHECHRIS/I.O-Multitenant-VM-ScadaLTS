@@ -437,6 +437,15 @@ actually use): `Users → <username> → Home URL` field, set to:
 graphics/home.html
 ```
 
+**This isn't a one-time step — repeat it for every new user you create
+from now on.** SCADA-LTS's own "Add User" form pre-fills this field with
+`graphics/home.htm` (missing the `l`) as a placeholder/example — if
+that's not manually cleared and retyped, it gets saved as-is and that
+user's post-login redirect 404s. Found this on 2026-08-26: a client user
+created after the initial setup landed on a 404 because of this exact
+default. Always double-check this field reads `graphics/home.html`
+(with the `l`) after creating any user, not just during initial setup.
+
 **Must be exactly this — a relative path, no leading slash, no domain.**
 A value like `/graphics/home.html` or a full URL breaks the post-login
 redirect (it 404s on a mangled `/S/...` path) — this isn't a typo risk,

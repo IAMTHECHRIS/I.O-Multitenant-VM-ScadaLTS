@@ -445,6 +445,16 @@ de verdade): campo `Users → <usuário> → Home URL`, definido como:
 graphics/home.html
 ```
 
+**Isso não é um passo único — repita pra todo usuário novo que você
+criar daqui pra frente.** O próprio formulário de "Adicionar Usuário" do
+SCADA-LTS pré-preenche esse campo com `graphics/home.htm` (faltando o
+"l") como sugestão/exemplo — se não for apagado e digitado de novo, salva
+desse jeito e o redirect pós-login desse usuário dá 404. Descoberto em
+2026-08-26: um usuário de cliente criado depois da configuração inicial
+caiu em 404 por causa exatamente desse padrão. Sempre confere se esse
+campo está `graphics/home.html` (com o "l") depois de criar qualquer
+usuário, não só na configuração inicial.
+
 **Precisa ser exatamente assim — caminho relativo, sem barra no início,
 sem domínio.** Um valor como `/graphics/home.html` ou uma URL completa
 quebra o redirect pós-login (dá 404 num caminho `/S/...` bagunçado) —
