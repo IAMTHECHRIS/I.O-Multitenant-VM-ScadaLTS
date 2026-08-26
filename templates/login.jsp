@@ -49,7 +49,7 @@
   </script>
 
   <div class="brand-block">
-    <img class="brand-logo" src="assets/{{LOGO_FILENAME}}?v=1" alt="{{CLIENTE_NOME}}"/>
+    <img class="brand-logo" src="assets/{{PROVEDOR_LOGO_FILENAME}}?v=1" alt="{{PROVEDOR_NOME}}"/>
     <div class="brand-sub">Sistema de Supervisão e Controle</div>
   </div>
 

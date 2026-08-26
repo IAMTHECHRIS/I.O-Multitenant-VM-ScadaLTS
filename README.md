@@ -264,15 +264,38 @@ home page. To give this client their own name/color/logo, you swap 4 files
 inside the container **before** starting it, using the templates in this
 repo's `templates/` folder.
 
+**Two-logo convention (provider vs. client) — standard for every install.**
+This deploy model is a managed service: **you** (the provider/reseller
+running this VM for the client) and **the client** (who uses the system
+day to day) are different parties, and the branding reflects that in 3
+places:
+
+| Screen | Logo shown | Why |
+|---|---|---|
+| Login screen | **Provider** (you) | The login is the entry point to *your* service — clients see who's running it before they're even in. |
+| Dashboard topbar (top-left, clickable) | **Client** | Once logged in, it's the client's operational view — their brand, linking to their own site. |
+| Dashboard footer (bottom-left, clickable) | **Provider** (you) | Small "powered by" credit, linking to your site — doesn't compete with the client's branding up top. |
+
+Get this backwards (e.g. provider logo in the topbar) and it reads as
+the client's system being white-labeled as *your* product instead of a
+service *you* provide *them* — confusing for the client and worth
+getting right from the first render.
+
 **9.1 — Render the templates.** Pick the client's name (lowercase,
-no spaces/accents — it becomes the database name), a theme color, and a
-DB password. Then:
+no spaces/accents — it becomes the database name), a theme color, a DB
+password, and the client's own logo/link. The provider (you) values are
+the same across every client you deploy for — set them once and reuse.
 
 ```bash
 NOME=<client-name>       # e.g. acme
 COR=<#hex-color>          # e.g. #1b5c94
 COR_HOVER=<#hex-color, slightly darker/lighter than COR>  # used on button hover
 DB_SENHA=<strong-password>
+CLIENTE_LINK=<https://client-own-site.example>   # topbar logo links here
+
+PROVEDOR_NOME=<your-company-name>                 # same for every client
+PROVEDOR_LOGO_FILENAME=provedor-logo.png          # same file for every client
+PROVEDOR_LINK=<https://your-own-site.example>     # same for every client
 
 mkdir -p /opt/scadalts/stack/clients/$NOME/login \
          /opt/scadalts/stack/clients/$NOME/graphics \
@@ -288,15 +311,25 @@ cp env.properties /opt/scadalts/stack/clients/$NOME/env.properties
 sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   login-theme.css > /opt/scadalts/stack/clients/$NOME/login/login-theme.css
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{PROVEDOR_NOME}}/$PROVEDOR_NOME/g; s/{{PROVEDOR_LOGO_FILENAME}}/$PROVEDOR_LOGO_FILENAME/g" \
   login.jsp > /opt/scadalts/stack/clients/$NOME/login/login.jsp
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{CLIENTE_LINK}}/$CLIENTE_LINK/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g; s/{{PROVEDOR_NOME}}/$PROVEDOR_NOME/g; s/{{PROVEDOR_LOGO_FILENAME}}/$PROVEDOR_LOGO_FILENAME/g; s|{{PROVEDOR_LINK}}|$PROVEDOR_LINK|g" \
   home.html > /opt/scadalts/stack/clients/$NOME/graphics/home.html
 
 cp -r vendor /opt/scadalts/stack/clients/$NOME/graphics/vendor
 cp $NOME-logo.png /opt/scadalts/stack/clients/$NOME/graphics/${NOME}-logo.png 2>/dev/null || true
+cp $PROVEDOR_LOGO_FILENAME /opt/scadalts/stack/clients/$NOME/graphics/$PROVEDOR_LOGO_FILENAME 2>/dev/null || true
 ```
+
+**Cache warning:** browsers (and Cloudflare, if you're proxying) cache
+these logo images hard — Tomcat serves static files with a long
+`max-age` by default. If you ever swap a logo file after the client is
+already live, bump the `?v=1` query string in the template (`?v=2`,
+`?v=3`, ...) and purge any CDN cache — a plain reload/hard-refresh isn't
+always enough to see the new file. Found this on 2026-08-26 debugging
+exactly this: server-side was already correct, the stale image was
+100% client-side/edge cache.
 
 `home.html` is the **full dashboard** (not a placeholder): a topbar with
 menu (Início/Mapa/Histórico/Alarmes), live telemetry cards per Data

@@ -270,15 +270,39 @@ de "lista de observação". Pra dar nome/cor/logo próprios pro cliente, você
 troca 4 arquivos dentro do container **antes** de subir, usando os
 templates da pasta `templates/` deste repo.
 
+**Convenção de dois logos (fornecedor vs. cliente) — padrão pra todo
+deploy.** Esse modelo é um serviço gerenciado: **você** (o fornecedor/
+revendedor que roda essa VM pro cliente) e **o cliente** (que usa o
+sistema no dia a dia) são partes diferentes, e a marca reflete isso em
+3 lugares:
+
+| Tela | Logo mostrado | Por quê |
+|---|---|---|
+| Tela de login | **Fornecedor** (você) | O login é a porta de entrada pro *seu* serviço — o cliente vê quem tá rodando antes mesmo de entrar. |
+| Topo do dashboard (superior esquerdo, clicável) | **Cliente** | Depois de logado, é a visão operacional do cliente — a marca dele, linkando pro site dele. |
+| Rodapé do dashboard (inferior esquerdo, clicável) | **Fornecedor** (você) | Crédito discreto tipo "powered by", linkando pro seu site — não compete com a marca do cliente lá em cima. |
+
+Inverter isso (ex: logo do fornecedor no topo) passa a impressão de que
+o sistema do cliente foi rotulado como *seu* produto, em vez de um
+serviço que *você* presta *pra ele* — confunde o cliente e vale acertar
+já na primeira renderização.
+
 **9.1 — Renderiza os templates.** Escolhe o nome do cliente (minúsculo,
-sem espaço/acento — vira o nome do banco), uma cor de tema, e uma senha de
-banco. Depois:
+sem espaço/acento — vira o nome do banco), uma cor de tema, uma senha de
+banco, e o logo/link do próprio cliente. Os valores do fornecedor (você)
+são os mesmos pra todo cliente que você atender — define uma vez e
+reusa.
 
 ```bash
 NOME=<nome-do-cliente>       # ex: acme
 COR=<#cor-hex>                 # ex: #1b5c94
 COR_HOVER=<#cor-hex, um pouco mais escura/clara que COR>  # usada no hover do botão
 DB_SENHA=<senha-forte>
+CLIENTE_LINK=<https://site-do-cliente.example>   # logo do topo linka pra ca
+
+PROVEDOR_NOME=<nome-da-sua-empresa>               # igual pra todo cliente
+PROVEDOR_LOGO_FILENAME=provedor-logo.png          # mesmo arquivo pra todo cliente
+PROVEDOR_LINK=<https://seu-site.example>          # igual pra todo cliente
 
 mkdir -p /opt/scadalts/stack/clients/$NOME/login \
          /opt/scadalts/stack/clients/$NOME/graphics \
@@ -294,15 +318,25 @@ cp env.properties /opt/scadalts/stack/clients/$NOME/env.properties
 sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
   login-theme.css > /opt/scadalts/stack/clients/$NOME/login/login-theme.css
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{PROVEDOR_NOME}}/$PROVEDOR_NOME/g; s/{{PROVEDOR_LOGO_FILENAME}}/$PROVEDOR_LOGO_FILENAME/g" \
   login.jsp > /opt/scadalts/stack/clients/$NOME/login/login.jsp
 
-sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g" \
+sed "s/{{CLIENTE_NOME}}/$NOME/g; s/{{CLIENTE_LINK}}/$CLIENTE_LINK/g; s/{{COR_TEMA}}/$COR/g; s/{{COR_TEMA_HOVER}}/$COR_HOVER/g; s/{{LOGO_FILENAME}}/${NOME}-logo.png/g; s/{{PROVEDOR_NOME}}/$PROVEDOR_NOME/g; s/{{PROVEDOR_LOGO_FILENAME}}/$PROVEDOR_LOGO_FILENAME/g; s|{{PROVEDOR_LINK}}|$PROVEDOR_LINK|g" \
   home.html > /opt/scadalts/stack/clients/$NOME/graphics/home.html
 
 cp -r vendor /opt/scadalts/stack/clients/$NOME/graphics/vendor
 cp $NOME-logo.png /opt/scadalts/stack/clients/$NOME/graphics/${NOME}-logo.png 2>/dev/null || true
+cp $PROVEDOR_LOGO_FILENAME /opt/scadalts/stack/clients/$NOME/graphics/$PROVEDOR_LOGO_FILENAME 2>/dev/null || true
 ```
+
+**Aviso de cache:** navegadores (e Cloudflare, se estiver na frente)
+cacheiam essas imagens de logo com força — o Tomcat serve arquivo
+estático com `max-age` longo por padrão. Se um dia trocar o arquivo de
+logo com o cliente já no ar, sobe o `?v=1` do template (`?v=2`, `?v=3`,
+...) e limpa qualquer cache de CDN — só recarregar/hard-refresh nem
+sempre resolve. Descoberto em 2026-08-26 depurando exatamente isso: o
+lado do servidor já estava certo, a imagem velha era 100% cache do
+cliente/borda.
 
 `home.html` é o **dashboard completo** (não é placeholder): barra
 superior com menu (Início/Mapa/Histórico/Alarmes), cards de telemetria
