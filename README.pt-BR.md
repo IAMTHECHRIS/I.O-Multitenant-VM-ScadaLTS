@@ -229,6 +229,40 @@ Uma VM, um cliente, uma regra de `ingress` — sem precisar de
 watcher/automação aqui, você escreve o arquivo uma vez quando prepara a
 VM.
 
+### 8.1 — Configuração da zona (fazer UMA VEZ por domínio, não por cliente)
+
+O SCADA-LTS fica em `/Scada-LTS/`, não na raiz do domínio — então
+`https://<cliente>.seudominio.com/` (sem caminho) dá 404 direto do
+Tomcat, o que parece uma queda pra quem só digita o domínio puro.
+Resolve isso uma vez, no nível da zona Cloudflare, e todo subdomínio de
+cliente que você criar depois já vem coberto — sem configuração por
+cliente.
+
+**1. Redirecionar raiz → `/Scada-LTS/`** (dashboard Cloudflare → sua zona
+→ Rules → Redirect Rules → Create rule, ou via API):
+- Quando a requisição bater com: `(http.host contains ".seudominio.com" and http.request.uri.path eq "/")`
+- Então: Redirect dinâmico, status `302`, URL de destino (expressão
+  dinâmica): `concat("https://", http.host, "/Scada-LTS/")`
+
+Usar `http.host` no destino (em vez de fixar o hostname de um cliente
+só) é o que faz isso valer pra qualquer subdomínio, presente e futuro.
+
+**2. Ligar "Always Use HTTPS"** (zona → SSL/TLS → Edge Certificates →
+Always Use HTTPS). O próprio SCADA-LTS não sabe que está atrás de um
+túnel que termina TLS, então os redirects internos dele (ex:
+`/Scada-LTS/` → `/Scada-LTS/login.htm`) saem como `http://`, não
+`https://`. Sem essa opção, isso é um salto inseguro/mixed-content que o
+navegador pode avisar. Com ela ligada, a borda da Cloudflare reescreve
+qualquer salto `http://` da sua zona de volta pra `https://` antes de
+chegar no navegador — resolve pra todo cliente sem mexer na config do
+Tomcat.
+
+Descoberto na prática em 2026-08-26: um subdomínio de cliente novo
+(`centrooperacional.uk`) parecia "fora do ar" — era só o 404 da raiz,
+não uma queda real. As duas configurações acima são de nível de zona,
+então foram feitas uma vez só e todo hostname de cliente adicionado
+depois já herda elas.
+
 ## 9. Criar o cliente — tema + subir
 
 O SCADA-LTS de fábrica tem uma tela de login genérica e uma home técnica

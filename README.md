@@ -225,6 +225,38 @@ by trial and error, the defaults don't):
 One VM, one client, one `ingress` rule — no watcher/automation needed here,
 you write the file once when you set the VM up.
 
+### 8.1 — Zone-wide setup (do this ONCE per domain, not per client)
+
+SCADA-LTS lives at `/Scada-LTS/`, not at the domain root — so
+`https://<client>.yourdomain.com/` (no path) 404s from Tomcat directly,
+which looks like an outage to anyone who just types the bare domain. Fix
+this once, at the Cloudflare zone level, and every client subdomain you
+add afterward is covered automatically — no per-client config needed.
+
+**1. Redirect root → `/Scada-LTS/`** (Cloudflare dashboard → your zone →
+Rules → Redirect Rules → Create rule, or via API):
+- When incoming requests match: `(http.host contains ".yourdomain.com" and http.request.uri.path eq "/")`
+- Then: Dynamic redirect, status `302`, target URL (dynamic expression):
+  `concat("https://", http.host, "/Scada-LTS/")`
+
+Using `http.host` in the target (instead of hardcoding one client's
+hostname) is what makes this apply to every subdomain, present and
+future.
+
+**2. Turn on "Always Use HTTPS"** (zone → SSL/TLS → Edge Certificates →
+Always Use HTTPS). SCADA-LTS itself doesn't know it's sitting behind a
+TLS-terminating tunnel, so its own internal redirects (e.g.
+`/Scada-LTS/` → `/Scada-LTS/login.htm`) come out as `http://`, not
+`https://`. Without this setting, that's a mixed-content/insecure hop a
+browser may warn about. With it on, Cloudflare's edge rewrites any
+`http://` hop for your zone back to `https://` before it reaches the
+browser — fixes it for every client without touching Tomcat config.
+
+Found this the hard way on 2026-08-26: a fresh client subdomain
+(`centrooperacional.uk`) looked "down" — it was just the bare-domain 404,
+not an actual outage. Both settings above are zone-level, so they were
+configured once and every client hostname added since inherits them.
+
 ## 9. Create the client — branding + bring-up
 
 Stock SCADA-LTS has a generic login screen and a technical "watch list"
