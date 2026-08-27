@@ -7,6 +7,7 @@ html, body {
 .login-browser { display: none !important; }
 
 #mainHeader { display: none !important; }
+#subHeader { display: none !important; } /* barra de nav secundaria (play/idioma) — some sozinha sem isso, ver README */
 #sltsFooter {
   text-align: center !important;
   font-size: 11px !important;

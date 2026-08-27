@@ -496,6 +496,43 @@ back in to confirm it lands on the branded home page.
 | ABS Gateway/Master images | ABS Telemetria's private registry | Yes, only if using an ABS Cel modem |
 | Branding templates (`templates/`) | This repo | No |
 
+## Bugs found in production (2026-08-27) — fixed, logged here to avoid repeating
+
+**Secondary nav bar wasn't hidden on the login screen.** The login theme
+(`templates/login-theme.css`) already hid `#mainHeader`, but SCADA-LTS
+renders a **second** nav element, `#subHeader` (`class="navHeader"`) —
+the bar with the play icon and language switcher — which wasn't covered.
+Without hiding both, a broken-looking strip is left at the top of the
+login screen (most visible once a custom theme switches the background
+to dark, since the unstyled `#subHeader` reads as a cut-off element).
+Fixed in the template — `#subHeader { display: none !important; }`
+alongside `#mainHeader`.
+
+**The MySQL database name inside the container can diverge from the one
+Tomcat actually uses.** `docker-compose.yml` sets `MYSQL_DATABASE=scadalts`,
+but the client's `context.xml` may point at a differently named database
+(e.g. `scadalts_cco`) — compose only creates the database named in
+`MYSQL_DATABASE` on first boot; if `context.xml` was later edited to a
+different name, the app connects fine (the database exists, created some
+other way), but manually inspecting via `SHOW TABLES` against the
+"obvious" name (`scadalts`) comes back empty — confuses debugging.
+**Always check `context.xml` (the `url="jdbc:mysql://database:3306/
+<real-name>"` field) before assuming the database name.**
+
+**A data-visibility gap between `admin` and a regular user isn't a
+theme/CSS bug — it's permissions.** A user with `admin='N'` only sees
+Data Points whose Data Source they have explicit permission for (the
+`dataSourceUsers` table) — `admin='Y'` skips that check entirely. If a
+client reports "a point's data disappeared" right after any visual
+change (CSS/HTML), the root cause is rarely the visual change — it's far
+more likely a missing Data Source permission for that user. Quick
+diagnostic query:
+```sql
+SELECT ds.name, dsu.userId FROM dataSources ds
+LEFT JOIN dataSourceUsers dsu ON dsu.dataSourceId = ds.id AND dsu.userId = <USER_ID>;
+-- rows with dsu.userId NULL = Data Source not permitted for that user
+```
+
 ## Known gaps (honest, not swept under the rug)
 
 - **No automated client-database backup** — you're responsible for backing

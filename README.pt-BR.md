@@ -507,6 +507,43 @@ que caiu na home personalizada.
 | Imagens ABS Gateway/Master | Registry privado da ABS Telemetria | Sim, só se usar modem ABS Cel |
 | Templates de marca (`templates/`) | Este repo | Não |
 
+## Bugs encontrados em produção (2026-08-27) — corrigidos, registrados aqui pra não repetir
+
+**Barra de navegação secundária não escondia na tela de login.** O tema
+de login (`templates/login-theme.css`) já escondia `#mainHeader`, mas o
+SCADA-LTS renderiza um **segundo** elemento de navegação, `#subHeader`
+(`class="navHeader"`) — barra com ícone de play e troca de idioma — que
+não estava coberto. Sem esconder os dois, sobra uma faixa quebrada no
+topo da tela de login (visível principalmente quando o tema custom muda
+o fundo pra escuro, já que o `#subHeader` sem estilo próprio fica com
+cara de elemento cortado). Corrigido no template — `#subHeader { display:
+none !important; }` junto do `#mainHeader`.
+
+**Nome do banco MySQL no container pode divergir do nome real usado
+pelo Tomcat.** `docker-compose.yml` define `MYSQL_DATABASE=scadalts`,
+mas o `context.xml` do cliente pode apontar pra um banco com nome
+diferente (ex: `scadalts_cco`) — o compose só cria o banco declarado em
+`MYSQL_DATABASE` na primeira subida; se o `context.xml` foi editado
+depois pra outro nome de banco, a app conecta normal (o banco existe,
+foi criado por outro caminho), mas qualquer inspeção manual via
+`SHOW TABLES` no nome "óbvio" (`scadalts`) vem vazia — confunde debug.
+**Sempre confira `context.xml` (campo `url="jdbc:mysql://database:3306/
+<nome-real>"`) antes de assumir o nome do banco.**
+
+**Diferença de dados visíveis entre `admin` e usuário comum não é bug
+de tema/CSS — é permissão.** Usuário com `admin='N'` só enxerga Data
+Points cujas Data Sources ele tem permissão explícita (tabela
+`dataSourceUsers`) — `admin='Y'` ignora essa checagem inteira. Se um
+cliente reportar "sumiu dado de um ponto" logo depois de qualquer
+mudança visual (CSS/HTML), a causa raiz raramente é a mudança visual —
+é mais provável faltar permissão de Data Source pro usuário. Query de
+diagnóstico rápido:
+```sql
+SELECT ds.name, dsu.userId FROM dataSources ds
+LEFT JOIN dataSourceUsers dsu ON dsu.dataSourceId = ds.id AND dsu.userId = <ID_DO_USUARIO>;
+-- linhas com dsu.userId NULL = Data Source sem permissão pra esse usuário
+```
+
 ## Lacunas conhecidas (honesto, sem esconder debaixo do tapete)
 
 - **Sem backup automático do banco do cliente** — você é responsável por
