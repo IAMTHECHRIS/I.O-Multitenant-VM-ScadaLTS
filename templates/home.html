@@ -1939,10 +1939,18 @@ const app = {
                 for (const m of dsHtml.matchAll(/id="dsImg(\d+)"\s+src="images\/database_(go|stop)\.png"/g)) {
                     statusById[m[1]] = m[2] === 'go';
                 }
-                enabledSourceNames = new Set();
+                const parsedNames = new Set();
+                let anyRow = false;
                 for (const m of dsHtml.matchAll(/id="dataSourceRow(\d+)">\s*<td><b>([^<]+)<\/b>/g)) {
-                    if (statusById[m[1]] !== false) enabledSourceNames.add(m[2]);
+                    anyRow = true;
+                    if (statusById[m[1]] !== false) parsedNames.add(m[2]);
                 }
+                // BUG FIX (2026-08-27): usuario sem permissao de admin nao consegue
+                // ver data_sources.shtm de verdade - o parse acha 0 linhas, e um Set
+                // vazio faz TODO ponto ser filtrado (pagina em branco pro usuario
+                // nao-admin). Se nao achou nenhuma linha, fail-open (null) em vez
+                // de "nenhuma fonte habilitada".
+                enabledSourceNames = anyRow ? parsedNames : null;
             } catch (err) {
                 console.warn('Nao foi possivel checar status dos data sources, filtro desativado', err);
             }
