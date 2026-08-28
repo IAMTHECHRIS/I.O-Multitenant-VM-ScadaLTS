@@ -695,6 +695,8 @@
 
         .pressao-icon { color: var(--text-light); transition: color .3s; }
         .pressao-icon.active { color: var(--accent); }
+        .link-icon { color: var(--text-light); transition: color .3s; }
+        .link-icon.fault { animation: pulse 1s ease-in-out infinite; }
         .pressao-icon.warn { color: #d9822b !important; }
         .pressao-icon.critical { color: #e5484d !important; animation: pulse 1s ease-in-out infinite; }
 
@@ -2064,6 +2066,10 @@ const app = {
                 return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i id="${idPrefix}breaker-${p.id}" class="fas fa-toggle-on" style="font-size:17px;"></i></div></div></div>`;
             }
 
+            if (p.type === 'BINARY' && nameKey.includes('conex')) {
+                return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div><span id="${idPrefix}val-${p.id}" class="val-box">...</span></div></div><div class="visual-slot"><i id="${idPrefix}link-${p.id}" class="fas fa-satellite-dish link-icon" style="font-size:17px;"></i></div></div></div>`;
+            }
+
             if (unit === 'sd') {
                 return `<div class="card-row"><div class="row-info"><span class="row-label">${app.utils.escapeHtml(p.name.split('__')[0].trim())}</span><span id="${idPrefix}ts-${p.id}" class="row-ts">--/-- --:--:--</span><i class="fas fa-chart-line hist-link" onclick="app.actions.viewHistory(event, ${p.id})" title="Ver histórico"></i></div><div class="row-right"><div class="value-wrapper"><div id="${idPrefix}switch-text-${p.id}" class="val-box">...</div></div><div class="visual-slot"><label class="switch"><input type="checkbox" id="${idPrefix}toggle-${p.id}" onclick="app.actions.setPoint(event, ${p.id}, '${p.xid}')"><span class="slider"></span></label></div></div></div>`;
             }
@@ -2094,7 +2100,7 @@ const app = {
                 visualContent = `<i class="fas fa-circle" style="color:var(--text-light); font-size:7px;"></i>`;
             }
 
-            const gaugeMax = unit === 'm³' ? app.config.nivelMaxM : (unit === 'mca' ? app.config.pressaoMaxMca : null);
+            const gaugeMax = unit === 'm³' ? app.config.nivelMaxM : null;
             const limitHint = gaugeMax !== null ? `<span class="unit-limit-hint">/${gaugeMax}</span>` : '';
             const unitDisplay = unit && unit !== 'ed' ? `<span class="unit-text">${app.utils.escapeHtml(unit)}${limitHint}</span>` : '';
 
@@ -2115,6 +2121,9 @@ const app = {
             }
             if (p.type === 'BINARY' && nameKey.includes('disjuntor')) {
                 return `<i id="${idPrefix}mini-breaker-${p.id}" class="fas fa-toggle-on" style="font-size:11px;color:var(--text-muted);"></i>`;
+            }
+            if (p.type === 'BINARY' && nameKey.includes('conex')) {
+                return `<i id="${idPrefix}mini-link-${p.id}" class="fas fa-satellite-dish link-icon" style="font-size:11px;color:var(--text-muted);"></i>`;
             }
             if (p.type === 'BINARY') {
                 return `<div id="${idPrefix}mini-pump-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg><i class="fas fa-fan"></i></div>`;
@@ -2192,6 +2201,18 @@ const app = {
                     ic.classList.toggle('fa-toggle-on', isClosed);
                     ic.classList.toggle('fa-toggle-off', !isClosed);
                     ic.style.color = isClosed ? '' : '#e5484d';
+                });
+                return;
+            }
+
+            if (p.type === 'BINARY' && nameKeyU.includes('conex')) {
+                const isFault = (val === 'true' || val === true || val == 1);
+                const elC = document.getElementById(`${idPrefix}val-${p.id}`);
+                if (elC) { elC.innerText = isFault ? 'OFFLINE' : 'ONLINE'; elC.className = `val-box ${isFault ? 'status-off' : 'status-on'}`; }
+                [document.getElementById(`${idPrefix}link-${p.id}`), document.getElementById(`${idPrefix}mini-link-${p.id}`)].forEach(ic => {
+                    if (!ic) return;
+                    ic.classList.toggle('fault', isFault);
+                    ic.style.color = isFault ? '#e5484d' : '#3fb950';
                 });
                 return;
             }
