@@ -1,0 +1,4 @@
+
+# Estado local de agentes - nunca versionar
+.claude/
+.codex/
