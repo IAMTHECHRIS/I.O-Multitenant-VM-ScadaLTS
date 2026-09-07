@@ -697,6 +697,10 @@
         .pressao-icon.active { color: var(--accent); }
         .link-icon { color: var(--text-light); transition: color .3s; }
         .link-icon.fault { animation: pulse 1s ease-in-out infinite; }
+        .tank-visual { display:flex; align-items:center; justify-content:center; }
+        .tank-outline { fill: none; stroke: var(--text-light); stroke-width: 1.5; }
+        .tank-wave { fill: var(--accent); animation: tankFlow 2.4s linear infinite; }
+        @keyframes tankFlow { from { transform: translateX(0); } to { transform: translateX(-34px); } }
         .pressao-icon.warn { color: #d9822b !important; }
         .pressao-icon.critical { color: #e5484d !important; animation: pulse 1s ease-in-out infinite; }
 
@@ -2092,6 +2096,8 @@ const app = {
                 visualContent = `<div id="${idPrefix}nivel-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
             } else if (unit === 'mca') {
                 visualContent = `<i id="${idPrefix}pressao-${p.id}" class="fas fa-gauge pressao-icon" style="font-size:17px;"></i>`;
+            } else if (unit === '%' && nameKey.includes('reservat')) {
+                visualContent = `<div class="tank-visual"><svg viewBox="0 0 34 34" width="34" height="34"><defs><clipPath id="${idPrefix}tankclip-${p.id}"><rect x="3" y="3" width="28" height="28" rx="3"></rect></clipPath></defs><rect x="3" y="3" width="28" height="28" rx="3" class="tank-outline"></rect><g clip-path="url(#${idPrefix}tankclip-${p.id})"><g id="${idPrefix}tankgroup-${p.id}" style="transform:translateY(31px);"><path class="tank-wave" d="M-34 4 Q -25.5 0 -17 4 T 0 4 T 17 4 T 34 4 T 51 4 T 68 4 V40 H-34 Z"></path></g></g></svg></div>`;
             } else if (unit === '%') {
                 visualContent = `<div id="${idPrefix}bar-${p.id}" class="gauge off"><svg width="34" height="34"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
             } else if (unit === 'dBm') {
@@ -2143,6 +2149,8 @@ const app = {
                 return `<div id="${idPrefix}mini-nivel-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
             } else if (unit === 'mca') {
                 return `<i id="${idPrefix}mini-pressao-${p.id}" class="fas fa-gauge pressao-icon" style="font-size:11px;"></i>`;
+            } else if (unit === '%' && nameKey.includes('reservat')) {
+                return `<div class="tank-visual"><svg viewBox="0 0 34 34" width="18" height="18"><defs><clipPath id="${idPrefix}mini-tankclip-${p.id}"><rect x="3" y="3" width="28" height="28" rx="3"></rect></clipPath></defs><rect x="3" y="3" width="28" height="28" rx="3" class="tank-outline"></rect><g clip-path="url(#${idPrefix}mini-tankclip-${p.id})"><g id="${idPrefix}mini-tankgroup-${p.id}" style="transform:translateY(31px);"><path class="tank-wave" d="M-34 4 Q -25.5 0 -17 4 T 0 4 T 17 4 T 34 4 T 51 4 T 68 4 V40 H-34 Z"></path></g></g></svg></div>`;
             } else if (unit === '%') {
                 return `<div id="${idPrefix}mini-bar-${p.id}" class="gauge off mini"><svg viewBox="0 0 34 34" width="18" height="18"><circle class="bg" cx="17" cy="17" r="14"></circle><circle class="fg" cx="17" cy="17" r="14"></circle></svg></div>`;
             } else if (unit === 'dBm') {
@@ -2259,7 +2267,14 @@ const app = {
                 if (!isNaN(parseFloat(val))) {
                     const valNum = parseFloat(val);
                     el.innerText = valNum.toFixed(p.unit === 'dBm' || p.unit === 'RPM' ? 0 : 2);
-                    if (p.unit === '%') {
+                    if (p.unit === '%' && nameKeyU.includes('reservat')) {
+                        const pct = Math.max(0, Math.min(100, valNum));
+                        const yPos = 31 - (28 * pct / 100);
+                        [document.getElementById(`${idPrefix}tankgroup-${p.id}`), document.getElementById(`${idPrefix}mini-tankgroup-${p.id}`)].forEach(g => {
+                            if (!g) return;
+                            g.style.transform = `translateY(${yPos}px)`;
+                        });
+                    } else if (p.unit === '%') {
                         const pct = Math.max(0, Math.min(100, valNum));
                         const off = 88 - (88 * pct / 100);
                         [document.getElementById(`${idPrefix}bar-${p.id}`), document.getElementById(`${idPrefix}mini-bar-${p.id}`)].forEach(bar => {
