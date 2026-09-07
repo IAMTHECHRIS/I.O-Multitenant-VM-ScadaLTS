@@ -1933,9 +1933,17 @@ const app = {
             // A pagina admin data_sources.shtm renderiza o status server-side
             // (img database_go.png = habilitado / database_stop.png = desabilitado);
             // nao existe endpoint REST para isso, entao fazemos parse do HTML.
+            // BUG CRITICO (2026-08-28, achado em producao): data_sources.shtm e pagina
+            // de ADMIN, retorna 403 pra qualquer usuario nao-admin. fetch() nao lanca
+            // excecao em 403 (so em falha de rede), entao sem o check de dsRes.ok abaixo
+            // o catch nunca disparava: o codigo parseava a pagina de erro 403 (sem nenhum
+            // dataSourceRow nela), enabledSourceNames ficava um Set VAZIO em vez de null,
+            // e TODO ponto era descartado mais abaixo — pagina em branco garantida pra
+            // qualquer cliente nao-admin, sempre. Nao remover este check.
             let enabledSourceNames = null;
             try {
                 const dsRes = await fetch('/Scada-LTS/data_sources.shtm');
+                if (!dsRes.ok) throw new Error(`data_sources.shtm HTTP ${dsRes.status} (provavelmente usuario nao-admin, sem acesso a essa pagina)`);
                 const dsHtml = await dsRes.text();
                 const statusById = {};
                 for (const m of dsHtml.matchAll(/id="dsImg(\d+)"\s+src="images\/database_(go|stop)\.png"/g)) {
